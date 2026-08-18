@@ -32,6 +32,11 @@ type DarajaJsonResponse = Record<string, unknown> & DarajaErrorResponse;
 
 const DEFAULT_DARAJA_CALLBACK_URL = "https://bingwahybrid.vercel.app/api/public/mpesa-callback";
 
+function getEnvValue(name: string) {
+  const value = process.env[name]?.trim();
+  return value || undefined;
+}
+
 function normalizePhone(input: string) {
   const digits = input.replace(/\D/g, "");
   if (digits.startsWith("254")) return digits;
@@ -44,7 +49,9 @@ async function readDarajaResponse<T extends DarajaJsonResponse>(response: Respon
   const text = await response.text();
 
   if (!text.trim()) {
-    throw new Error(`M-Pesa returned an empty response (${response.status}).`);
+    throw new Error(
+      `Daraja returned HTTP ${response.status} with an empty response. Check that the shortcode, account type, and production credentials match.`,
+    );
   }
 
   try {
@@ -55,18 +62,19 @@ async function readDarajaResponse<T extends DarajaJsonResponse>(response: Respon
 }
 
 function getDarajaConfig(): DarajaConfig | null {
-  const consumerKey = process.env["DARAJA_CONSUMER_KEY"];
-  const consumerSecret = process.env["DARAJA_CONSUMER_SECRET"];
-  const shortcode = process.env["DARAJA_SHORTCODE"];
-  const passkey = process.env["DARAJA_PASSKEY"];
-  const callbackUrl = process.env["DARAJA_CALLBACK_URL"] || DEFAULT_DARAJA_CALLBACK_URL;
+  const consumerKey = getEnvValue("DARAJA_CONSUMER_KEY");
+  const consumerSecret = getEnvValue("DARAJA_CONSUMER_SECRET");
+  const shortcode = getEnvValue("DARAJA_SHORTCODE");
+  const passkey = getEnvValue("DARAJA_PASSKEY");
+  const callbackUrl = getEnvValue("DARAJA_CALLBACK_URL") || DEFAULT_DARAJA_CALLBACK_URL;
 
   if (!consumerKey || !consumerSecret || !shortcode || !passkey) {
     return null;
   }
 
   const isProduction = process.env["DARAJA_ENV"] === "production";
-  const accountType = process.env["DARAJA_ACCOUNT_TYPE"] === "paybill" ? "paybill" : "till";
+  const accountType =
+    getEnvValue("DARAJA_ACCOUNT_TYPE")?.toLowerCase() === "paybill" ? "paybill" : "till";
 
   return {
     consumerKey,
@@ -85,6 +93,7 @@ async function getAccessToken(config: DarajaConfig) {
     {
       headers: {
         Authorization: `Basic ${btoa(`${config.consumerKey}:${config.consumerSecret}`)}`,
+        Accept: "application/json",
       },
     },
   );
@@ -123,6 +132,7 @@ export async function performStkPush(data: StkInput) {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -175,6 +185,7 @@ export async function performStkQuery(data: QueryInput) {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

@@ -613,9 +613,12 @@ function BingwaApp() {
                     toast.info(payment.message);
                     return;
                   }
+                  setBalance((balance) => balance + ACTIVATION_FEE);
                   setActive(true);
                   setShowActivation(false);
-                  toast.success("Payment confirmed. Your dealer app is now active.");
+                  toast.success(
+                    `Payment confirmed. KES ${ACTIVATION_FEE.toLocaleString()} added to your float.`,
+                  );
                 } catch (error) {
                   toast.error(paymentErrorMessage(error));
                 } finally {
