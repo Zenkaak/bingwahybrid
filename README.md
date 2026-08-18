@@ -2,13 +2,13 @@
 
 Build a proffesional bingwa sokoni app. It shows all this packages *CURRENTLY AUTOMATED OFFERS*🥳
 
-*MARTHA WAMBUI🔥*
+_MARTHA WAMBUI🔥_
 
 TILL:4211224
 
 🔥🔂*Bingwa Data Buy only once per day per number* 
 
-✅️:Ksh.19=1GB,1hour(*available from 11pm-4pm*)
+✅️:Ksh.19=1GB,1hour(_available from 11pm-4pm_)
 
 ✅️:Ksh.20=250Mbs,24 hours
 
@@ -22,9 +22,7 @@ TILL:4211224
 
 Till: 4211224
 
-
-
-🔥♻️ *SMS Buy many times /day* 
+🔥♻️ _SMS Buy many times /day_ 
 
 ✅Ksh.5=20 SMS 
 
@@ -32,15 +30,11 @@ Till: 4211224
 
 ✅Ksh.30=1000 SMS 7days
 
-
-
-📢*Please Note:* 1GB hourly data(Sh23&Sh19) *offer will only be available daily from 11:00Pm to 4:00Pm*
+📢*Please Note:* 1GB hourly data(Sh23&Sh19) _offer will only be available daily from 11:00Pm to 4:00Pm_
 
 ---
 
-*If you buy 1GB after 4pm daily you will get 250MBs + free WhatsApp*
-
-
+_If you buy 1GB after 4pm daily you will get 250MBs + free WhatsApp_
 
 🔥♻️*Minutes available*
 
@@ -50,11 +44,9 @@ Till: 4211224
 
 Till: 4211224
 
+🔥♻️ _Tunukiwa data Buy many times /day_  
 
-
-🔥♻️ *Tunukiwa data Buy many times /day*  
-
-✅Ksh.23= 1GB 1 hour(*available from 11pm-4pm*)
+✅Ksh.23= 1GB 1 hour(_available from 11pm-4pm_)
 
 ✅Ksh.52=750mbs 24hrs
 
@@ -64,11 +56,28 @@ Till:4211224
 
  
 
- Till Number *4211224*
+ Till Number _4211224_
 
-Till name *MARTHA WAMBUI*
+Till name _MARTHA WAMBUI_
 
- The default pin is 9898. To open the dashboard.  It will show balance kes 850.  In every  package there is sell, onClick it ask for customer number and option to select airtime or mpesa. OnClick it will say your app is not active then pops activation button which prompts kes 800 must be activated within 1 hour. I have daraja details ready.
+ The default pin is 9898. To open the dashboard. It will show balance kes 850. In every package there is sell, onClick it ask for customer number and option to select airtime or mpesa. OnClick it will say your app is not active then pops activation button which prompts kes 800 must be activated within 1 hour. I have daraja details ready.
+
+## Daraja configuration
+
+The payment prompts run server-side and do not require Supabase. Configure these variables in the
+Vercel project environment:
+
+- `DARAJA_CONSUMER_KEY`
+- `DARAJA_CONSUMER_SECRET`
+- `DARAJA_PASSKEY`
+- `DARAJA_SHORTCODE`
+- `DARAJA_ENV` (`sandbox` or `production`)
+- `DARAJA_ACCOUNT_TYPE` (`till` or `paybill`)
+- `DARAJA_CALLBACK_URL` (the public `/api/public/mpesa-callback` URL)
+
+Activation, float top-ups, and M-Pesa sales are confirmed with the Daraja STK query endpoint before
+the dashboard updates. Dashboard state is kept locally in the dealer's browser, so no Supabase
+service key is needed.
 
 This project was built with [Lovable](https://lovable.dev).
 

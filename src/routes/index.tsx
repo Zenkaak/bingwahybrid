@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
+import { queryStk, stkPush } from "@/lib/mpesa.functions";
 import {
   ACTIVATION_FEE,
   DEFAULT_PIN,
@@ -23,6 +24,43 @@ import {
   TILL_NUMBER,
   type Offer,
 } from "@/lib/packages";
+
+const PAYMENT_POLL_ATTEMPTS = 10;
+const PAYMENT_POLL_DELAY_MS = 3000;
+const DASHBOARD_STATE_KEY = "bingwa-sokoni-dashboard";
+
+type DashboardState = {
+  active: boolean;
+  balance: number;
+  salesCount: number;
+  revenue: number;
+  deadline: number | null;
+};
+
+async function waitForPayment(checkoutRequestId: string | null) {
+  if (!checkoutRequestId) {
+    return { status: "pending" as const, message: "Payment prompt sent. Awaiting confirmation." };
+  }
+
+  for (let attempt = 0; attempt < PAYMENT_POLL_ATTEMPTS; attempt += 1) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, PAYMENT_POLL_DELAY_MS));
+    }
+
+    const result = await queryStk({ data: { checkoutRequestId } });
+    if (!result.ok) {
+      return { status: "failed" as const, message: result.error };
+    }
+    if (result.status !== "pending") {
+      return result;
+    }
+  }
+
+  return {
+    status: "pending" as const,
+    message: "Prompt sent, but confirmation is taking longer than expected.",
+  };
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -45,6 +83,7 @@ export const Route = createFileRoute("/")({
 });
 
 function BingwaApp() {
+  const push = stkPush;
   const [unlocked, setUnlocked] = useState(false);
   const [pin, setPin] = useState("");
   const [active, setActive] = useState(false);
@@ -61,7 +100,33 @@ function BingwaApp() {
   const [showActivation, setShowActivation] = useState(false);
   const [deadline, setDeadline] = useState<number | null>(null);
   const [left, setLeft] = useState("60:00");
+  const [stateHydrated, setStateHydrated] = useState(false);
 
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(DASHBOARD_STATE_KEY);
+      if (stored) {
+        const saved = JSON.parse(stored) as Partial<DashboardState>;
+        if (typeof saved.active === "boolean") setActive(saved.active);
+        if (typeof saved.balance === "number") setBalance(saved.balance);
+        if (typeof saved.salesCount === "number") setSalesCount(saved.salesCount);
+        if (typeof saved.revenue === "number") setRevenue(saved.revenue);
+        if (typeof saved.deadline === "number" || saved.deadline === null) {
+          setDeadline(saved.deadline);
+        }
+      }
+    } catch {
+      window.localStorage.removeItem(DASHBOARD_STATE_KEY);
+    } finally {
+      setStateHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!stateHydrated) return;
+    const state: DashboardState = { active, balance, salesCount, revenue, deadline };
+    window.localStorage.setItem(DASHBOARD_STATE_KEY, JSON.stringify(state));
+  }, [active, balance, salesCount, revenue, deadline, stateHydrated]);
 
   useEffect(() => {
     if (!deadline) return;
@@ -139,14 +204,12 @@ function BingwaApp() {
       </header>
 
       <section className="surface-card shadow-elevated mt-6 overflow-hidden rounded-3xl">
-        <div className="flex items-start justify-between gap-4 p-6 pb-5">
+        <div className="flex flex-col gap-5 p-5 pb-5 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:p-6">
           <div>
             <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
               Float balance
             </p>
-            <p className="mt-1 font-display text-4xl font-bold">
-              KES {balance.toLocaleString()}
-            </p>
+            <p className="mt-1 font-display text-4xl font-bold">KES {balance.toLocaleString()}</p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Badge variant={active ? "default" : "secondary"}>
                 {active ? "Account active" : "Not activated"}
@@ -156,7 +219,7 @@ function BingwaApp() {
               ) : null}
             </div>
           </div>
-          <div className="grid w-[9.5rem] shrink-0 gap-2">
+          <div className="grid w-full shrink-0 gap-2 sm:w-[9.5rem]">
             <Button
               size="sm"
               className="w-full"
@@ -197,7 +260,6 @@ function BingwaApp() {
         </div>
       </section>
 
-
       <p className="mt-6 rounded-2xl border border-border bg-card/60 p-4 text-xs leading-relaxed text-muted-foreground">
         <strong className="text-foreground">Please note:</strong> 1GB hourly data (Ksh.23 &amp;
         Ksh.19) is only available daily from 11:00pm to 4:00pm. If you buy 1GB after 4pm you will
@@ -235,6 +297,7 @@ function BingwaApp() {
                   onClick={() => {
                     setSellOffer(offer);
                     setCustomer("");
+                    setMethod("mpesa");
                   }}
                 >
                   Sell
@@ -283,7 +346,7 @@ function BingwaApp() {
                         : "border-border bg-card text-muted-foreground"
                     }`}
                   >
-                    {m === "mpesa" ? "M-Pesa" : "Airtime"}
+                    {m === "mpesa" ? "M-Pesa prompt" : "Airtime / float"}
                   </button>
                 ))}
               </div>
@@ -325,7 +388,16 @@ function BingwaApp() {
                       toast.error(res.error);
                       return;
                     }
-                    toast.success(`STK push sent to ${customer}`);
+                    const payment = await waitForPayment(res.checkoutRequestId);
+                    if (payment.status === "failed") {
+                      toast.error(payment.message);
+                      return;
+                    }
+                    if (payment.status === "pending") {
+                      toast.info(payment.message);
+                      return;
+                    }
+                    toast.success(`Payment confirmed. ${offer.title} is ready for ${customer}`);
                   } else {
                     setBalance((b) => b - offer.price);
                     toast.success(`${offer.title} sent to ${customer} from float`);
@@ -412,8 +484,18 @@ function BingwaApp() {
                     toast.error(res.error);
                     return;
                   }
-                  toast.success("Enter your M-Pesa PIN to complete the top-up");
+                  const payment = await waitForPayment(res.checkoutRequestId);
+                  if (payment.status === "failed") {
+                    toast.error(payment.message);
+                    return;
+                  }
+                  if (payment.status === "pending") {
+                    toast.info(payment.message);
+                    return;
+                  }
+                  setBalance((balance) => balance + amount);
                   setShowFloat(false);
+                  toast.success(`KES ${amount.toLocaleString()} added to your float`);
                 } finally {
                   setBusy(false);
                 }
@@ -472,9 +554,18 @@ function BingwaApp() {
                     toast.error(res.error);
                     return;
                   }
+                  const payment = await waitForPayment(res.checkoutRequestId);
+                  if (payment.status === "failed") {
+                    toast.error(payment.message);
+                    return;
+                  }
+                  if (payment.status === "pending") {
+                    toast.info(payment.message);
+                    return;
+                  }
                   setActive(true);
                   setShowActivation(false);
-                  toast.success("Activation prompt sent. Enter your M-Pesa PIN.");
+                  toast.success("Payment confirmed. Your dealer app is now active.");
                 } finally {
                   setBusy(false);
                 }
@@ -488,7 +579,6 @@ function BingwaApp() {
           </p>
         </DialogContent>
       </Dialog>
-
     </main>
   );
 }
