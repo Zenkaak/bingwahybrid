@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicMpesaRouteImport } from './routes/api/public/mpesa'
 import { Route as ApiPublicMpesaCallbackRouteImport } from './routes/api/public/mpesa-callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMpesaRoute = ApiPublicMpesaRouteImport.update({
+  id: '/api/public/mpesa',
+  path: '/api/public/mpesa',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicMpesaCallbackRoute = ApiPublicMpesaCallbackRouteImport.update({
@@ -25,27 +31,31 @@ const ApiPublicMpesaCallbackRoute = ApiPublicMpesaCallbackRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/public/mpesa-callback'
+  fullPaths: '/' | '/api/public/mpesa' | '/api/public/mpesa-callback'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/mpesa-callback'
-  id: '__root__' | '/' | '/api/public/mpesa-callback'
+  to: '/' | '/api/public/mpesa' | '/api/public/mpesa-callback'
+  id: '__root__' | '/' | '/api/public/mpesa' | '/api/public/mpesa-callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicMpesaRoute: typeof ApiPublicMpesaRoute
   ApiPublicMpesaCallbackRoute: typeof ApiPublicMpesaCallbackRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/mpesa': {
+      id: '/api/public/mpesa'
+      path: '/api/public/mpesa'
+      fullPath: '/api/public/mpesa'
+      preLoaderRoute: typeof ApiPublicMpesaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/mpesa-callback': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicMpesaRoute: ApiPublicMpesaRoute,
   ApiPublicMpesaCallbackRoute: ApiPublicMpesaCallbackRoute,
 }
 export const routeTree = rootRouteImport

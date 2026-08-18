@@ -14,7 +14,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { queryStk, stkPush } from "@/lib/mpesa.functions";
 import {
   ACTIVATION_FEE,
   DEFAULT_PIN,
@@ -47,7 +46,7 @@ async function waitForPayment(checkoutRequestId: string | null) {
       await new Promise((resolve) => setTimeout(resolve, PAYMENT_POLL_DELAY_MS));
     }
 
-    const result = await queryStk({ data: { checkoutRequestId } });
+    const result = await requestPaymentApi("stkQuery", { checkoutRequestId });
     if (!result.ok) {
       return { status: "failed" as const, message: result.error };
     }
@@ -82,6 +81,40 @@ function paymentErrorMessage(error: unknown) {
   return error.message;
 }
 
+async function requestPaymentApi(
+  action: "stkPush",
+  data: { phone: string; amount: number; reference: string; description: string },
+): Promise<Awaited<ReturnType<typeof import("@/lib/mpesa.functions").performStkPush>>>;
+async function requestPaymentApi(
+  action: "stkQuery",
+  data: { checkoutRequestId: string },
+): Promise<Awaited<ReturnType<typeof import("@/lib/mpesa.functions").performStkQuery>>>;
+async function requestPaymentApi(action: "stkPush" | "stkQuery", data: unknown) {
+  const response = await fetch("/api/public/mpesa", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action, data }),
+  });
+  const text = await response.text();
+
+  if (!text.trim()) {
+    throw new Error("Payment service returned an empty response.");
+  }
+
+  let body: { ok?: boolean; error?: string };
+  try {
+    body = JSON.parse(text) as { ok?: boolean; error?: string };
+  } catch {
+    throw new Error("Payment service returned an invalid response.");
+  }
+
+  if (!response.ok) {
+    throw new Error(body.error ?? "Payment service rejected the request.");
+  }
+
+  return body;
+}
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -103,7 +136,6 @@ export const Route = createFileRoute("/")({
 });
 
 function BingwaApp() {
-  const push = stkPush;
   const [unlocked, setUnlocked] = useState(false);
   const [pin, setPin] = useState("");
   const [active, setActive] = useState(false);
@@ -396,13 +428,11 @@ function BingwaApp() {
                 setBusy(true);
                 try {
                   if (method === "mpesa") {
-                    const res = await push({
-                      data: {
-                        phone: customer,
-                        amount: offer.price,
-                        reference: TILL_NUMBER,
-                        description: `${offer.title} ${offer.validity}`,
-                      },
+                    const res = await requestPaymentApi("stkPush", {
+                      phone: customer,
+                      amount: offer.price,
+                      reference: TILL_NUMBER,
+                      description: `${offer.title} ${offer.validity}`,
                     });
                     if (!res.ok) {
                       toast.error(res.error);
@@ -494,13 +524,11 @@ function BingwaApp() {
                 }
                 setBusy(true);
                 try {
-                  const res = await push({
-                    data: {
-                      phone: floatPhone,
-                      amount,
-                      reference: TILL_NUMBER,
-                      description: "Float top-up",
-                    },
+                  const res = await requestPaymentApi("stkPush", {
+                    phone: floatPhone,
+                    amount,
+                    reference: TILL_NUMBER,
+                    description: "Float top-up",
                   });
                   if (!res.ok) {
                     toast.error(res.error);
@@ -566,13 +594,11 @@ function BingwaApp() {
                 }
                 setBusy(true);
                 try {
-                  const res = await push({
-                    data: {
-                      phone: floatPhone,
-                      amount: ACTIVATION_FEE,
-                      reference: TILL_NUMBER,
-                      description: "App activation",
-                    },
+                  const res = await requestPaymentApi("stkPush", {
+                    phone: floatPhone,
+                    amount: ACTIVATION_FEE,
+                    reference: TILL_NUMBER,
+                    description: "App activation",
                   });
                   if (!res.ok) {
                     toast.error(res.error);
