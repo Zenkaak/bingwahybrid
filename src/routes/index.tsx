@@ -18,9 +18,9 @@ import {
   ACTIVATION_FEE,
   DEFAULT_PIN,
   OFFER_GROUPS,
+  OFFLINE_TILL_NUMBER,
   START_BALANCE,
   TILL_NAME,
-  TILL_NUMBER,
   type Offer,
 } from "@/lib/packages";
 
@@ -34,6 +34,11 @@ type DashboardState = {
   salesCount: number;
   revenue: number;
   deadline: number | null;
+};
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
 async function waitForPayment(checkoutRequestId: string | null) {
@@ -122,7 +127,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Buy Bingwa Sokoni data, SMS, minutes and Tunukiwa offers instantly. Paybill 4018275 — MARTHA WAMBUI.",
+          "Buy Bingwa Sokoni data, SMS, minutes and Tunukiwa offers instantly. Offline till payments are supported.",
       },
       { property: "og:title", content: "Bingwa Sokoni — Data, SMS & Minutes Offers" },
       {
@@ -153,6 +158,29 @@ function BingwaApp() {
   const [deadline, setDeadline] = useState<number | null>(null);
   const [left, setLeft] = useState("60:00");
   const [stateHydrated, setStateHydrated] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+    const handleAppInstalled = () => setInstallPrompt(null);
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch((error: unknown) => {
+        console.warn("Bingwa Sokoni offline support could not start.", error);
+      });
+    }
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -235,7 +263,7 @@ function BingwaApp() {
             </Button>
           </form>
           <p className="mt-5 text-xs text-muted-foreground">
-            Till {TILL_NUMBER} · {TILL_NAME}
+            Offline till {OFFLINE_TILL_NUMBER} · {TILL_NAME}
           </p>
         </div>
       </main>
@@ -250,9 +278,24 @@ function BingwaApp() {
           Automated offers
         </p>
         <h1 className="mt-2 text-3xl font-bold">Bingwa Sokoni</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Till {TILL_NUMBER} · {TILL_NAME}
-        </p>
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Offline till {OFFLINE_TILL_NUMBER} · {TILL_NAME}
+          </p>
+          {installPrompt ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await installPrompt.prompt();
+                await installPrompt.userChoice;
+                setInstallPrompt(null);
+              }}
+            >
+              Install app
+            </Button>
+          ) : null}
+        </div>
       </header>
 
       <section className="surface-card shadow-elevated mt-6 overflow-hidden rounded-3xl">
@@ -306,8 +349,8 @@ function BingwaApp() {
             <p className="text-[11px] text-muted-foreground">Revenue</p>
           </div>
           <div className="p-3">
-            <p className="text-sm font-semibold">{TILL_NUMBER}</p>
-            <p className="text-[11px] text-muted-foreground">Till</p>
+            <p className="text-sm font-semibold">{OFFLINE_TILL_NUMBER}</p>
+            <p className="text-[11px] text-muted-foreground">Offline till</p>
           </div>
         </div>
       </section>
@@ -362,7 +405,7 @@ function BingwaApp() {
 
       <footer className="mt-10 text-center text-xs text-muted-foreground">
         Till name <strong className="text-foreground">{TILL_NAME}</strong> · Till number{" "}
-        <strong className="text-foreground">{TILL_NUMBER}</strong>
+        <strong className="text-foreground">{OFFLINE_TILL_NUMBER}</strong>
       </footer>
 
       <Dialog open={!!sellOffer} onOpenChange={(o) => !o && setSellOffer(null)}>
@@ -431,7 +474,7 @@ function BingwaApp() {
                     const res = await requestPaymentApi("stkPush", {
                       phone: customer,
                       amount: offer.price,
-                      reference: TILL_NUMBER,
+                      reference: offer.service,
                       description: `${offer.title} ${offer.validity}`,
                     });
                     if (!res.ok) {
@@ -473,7 +516,8 @@ function BingwaApp() {
           <DialogHeader>
             <DialogTitle>Add float</DialogTitle>
             <DialogDescription>
-              We'll send an M-Pesa prompt to your phone. Payment goes to Till {TILL_NUMBER}.
+              We'll send an M-Pesa prompt to your phone. Your payment will be verified
+              automatically.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -527,7 +571,7 @@ function BingwaApp() {
                   const res = await requestPaymentApi("stkPush", {
                     phone: floatPhone,
                     amount,
-                    reference: TILL_NUMBER,
+                    reference: "float",
                     description: "Float top-up",
                   });
                   if (!res.ok) {
@@ -597,7 +641,7 @@ function BingwaApp() {
                   const res = await requestPaymentApi("stkPush", {
                     phone: floatPhone,
                     amount: ACTIVATION_FEE,
-                    reference: TILL_NUMBER,
+                    reference: "activation",
                     description: "App activation",
                   });
                   if (!res.ok) {
@@ -630,7 +674,7 @@ function BingwaApp() {
             </Button>
           </DialogFooter>
           <p className="text-[11px] text-muted-foreground">
-            Payment goes to Till {TILL_NUMBER} · {TILL_NAME}
+            Your activation payment will be verified automatically · {TILL_NAME}
           </p>
         </DialogContent>
       </Dialog>

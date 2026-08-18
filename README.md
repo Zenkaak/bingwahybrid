@@ -4,7 +4,7 @@ Build a proffesional bingwa sokoni app. It shows all this packages *CURRENTLY AU
 
 _MARTHA WAMBUI🔥_
 
-TILL:4018275
+OFFLINE TILL: 4211224
 
 🔥🔂*Bingwa Data Buy only once per day per number* 
 
@@ -20,7 +20,7 @@ TILL:4018275
 
 ✅Ksh.299=2.5GB weekly
 
-Till: 4018275
+Offline till: 4211224
 
 🔥♻️ _SMS Buy many times /day_ 
 
@@ -42,7 +42,7 @@ _If you buy 1GB after 4pm daily you will get 250MBs + free WhatsApp_
 
 ✅Ksh.51= 60 mins midnight
 
-Till: 4018275
+Offline till: 4211224
 
 🔥♻️ _Tunukiwa data Buy many times /day_  
 
@@ -52,11 +52,11 @@ Till: 4018275
 
 ✅Ksh.110= 2GB 24hours
 
-Till:4018275
+Offline till: 4211224
 
  
 
- Till Number _4018275_
+ Offline Till Number _4211224_
 
 Till name _MARTHA WAMBUI_
 
@@ -70,14 +70,15 @@ Vercel project environment:
 - `DARAJA_CONSUMER_KEY`
 - `DARAJA_CONSUMER_SECRET`
 - `DARAJA_PASSKEY`
-- `DARAJA_SHORTCODE`
+- `DARAJA_SHORTCODE` (server-only payment shortcode; never display it in the UI)
 - `DARAJA_ENV` (`sandbox` or `production`)
 - `DARAJA_ACCOUNT_TYPE` (`till` or `paybill`)
 - `DARAJA_CALLBACK_URL` (the public `/api/public/mpesa-callback` URL)
 
 Activation, float top-ups, and M-Pesa sales are confirmed with the Daraja STK query endpoint before
 the dashboard updates. Dashboard state is kept locally in the dealer's browser, so no Supabase
-service key is needed.
+service key is needed. Offline payments use till `4211224`; M-Pesa prompts use the server-only
+Daraja shortcode.
 
 This project was built with [Lovable](https://lovable.dev).
 

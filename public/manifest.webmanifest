@@ -1,0 +1,19 @@
+{
+  "name": "Bingwa Sokoni",
+  "short_name": "Bingwa Sokoni",
+  "description": "Automated data, SMS, minutes and Tunukiwa offers.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#123d2c",
+  "theme_color": "#123d2c",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "256x256",
+      "type": "image/x-icon",
+      "purpose": "any maskable"
+    }
+  ]
+}
