@@ -41,7 +41,7 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  component: BingwaApp;
+  component: BingwaApp,
 });
 
 function BingwaApp() {
