@@ -48,12 +48,20 @@ function BingwaApp() {
   const [unlocked, setUnlocked] = useState(false);
   const [pin, setPin] = useState("");
   const [active, setActive] = useState(false);
+  const [balance, setBalance] = useState(START_BALANCE);
+  const [salesCount, setSalesCount] = useState(0);
+  const [revenue, setRevenue] = useState(0);
+  const [showFloat, setShowFloat] = useState(false);
+  const [floatAmount, setFloatAmount] = useState("");
+  const [floatPhone, setFloatPhone] = useState("");
+  const [busy, setBusy] = useState(false);
   const [sellOffer, setSellOffer] = useState<Offer | null>(null);
   const [customer, setCustomer] = useState("");
   const [method, setMethod] = useState<"airtime" | "mpesa">("mpesa");
   const [showActivation, setShowActivation] = useState(false);
   const [deadline, setDeadline] = useState<number | null>(null);
   const [left, setLeft] = useState("60:00");
+
 
   useEffect(() => {
     if (!deadline) return;
