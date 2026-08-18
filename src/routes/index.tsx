@@ -130,20 +130,65 @@ function BingwaApp() {
         </p>
       </header>
 
-      <section className="surface-card mt-6 rounded-3xl p-6">
-        <p className="text-sm text-muted-foreground">Float balance</p>
-        <p className="mt-1 font-display text-4xl font-bold">
-          KES {START_BALANCE.toLocaleString()}
-        </p>
-        <div className="mt-4 flex items-center gap-2">
-          <Badge variant={active ? "default" : "secondary"}>
-            {active ? "Account active" : "Not activated"}
-          </Badge>
-          {deadline && !active ? (
-            <span className="text-xs text-accent">Activate within {left}</span>
-          ) : null}
+      <section className="surface-card shadow-elevated mt-6 overflow-hidden rounded-3xl">
+        <div className="flex items-start justify-between gap-4 p-6 pb-5">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              Float balance
+            </p>
+            <p className="mt-1 font-display text-4xl font-bold">
+              KES {balance.toLocaleString()}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Badge variant={active ? "default" : "secondary"}>
+                {active ? "Account active" : "Not activated"}
+              </Badge>
+              {deadline && !active ? (
+                <span className="text-xs text-accent">Activate within {left}</span>
+              ) : null}
+            </div>
+          </div>
+          <div className="grid w-[9.5rem] shrink-0 gap-2">
+            <Button
+              size="sm"
+              className="w-full"
+              disabled={active}
+              onClick={() => {
+                setDeadline(Date.now() + 60 * 60 * 1000);
+                setShowActivation(true);
+              }}
+            >
+              {active ? "Activated" : "Activate app"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setFloatAmount("");
+                setShowFloat(true);
+              }}
+            >
+              Add float
+            </Button>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 divide-x divide-border border-t border-border bg-background/30 text-center">
+          <div className="p-3">
+            <p className="text-sm font-semibold">{salesCount}</p>
+            <p className="text-[11px] text-muted-foreground">Sales today</p>
+          </div>
+          <div className="p-3">
+            <p className="text-sm font-semibold">KES {revenue.toLocaleString()}</p>
+            <p className="text-[11px] text-muted-foreground">Revenue</p>
+          </div>
+          <div className="p-3">
+            <p className="text-sm font-semibold">{TILL_NUMBER}</p>
+            <p className="text-[11px] text-muted-foreground">Till</p>
+          </div>
         </div>
       </section>
+
 
       <p className="mt-6 rounded-2xl border border-border bg-card/60 p-4 text-xs leading-relaxed text-muted-foreground">
         <strong className="text-foreground">Please note:</strong> 1GB hourly data (Ksh.23 &amp;
