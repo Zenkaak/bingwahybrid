@@ -1,4 +1,4 @@
-export const TILL_NUMBER = "4211224";
+export const TILL_NUMBER = "4018275";
 export const TILL_NAME = "MARTHA WAMBUI";
 export const DEFAULT_PIN = "9898";
 export const START_BALANCE = 850;

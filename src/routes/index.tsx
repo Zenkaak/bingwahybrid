@@ -69,7 +69,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Buy Bingwa Sokoni data, SMS, minutes and Tunukiwa offers instantly. Till 4211224 — MARTHA WAMBUI.",
+          "Buy Bingwa Sokoni data, SMS, minutes and Tunukiwa offers instantly. Paybill 4018275 — MARTHA WAMBUI.",
       },
       { property: "og:title", content: "Bingwa Sokoni — Data, SMS & Minutes Offers" },
       {

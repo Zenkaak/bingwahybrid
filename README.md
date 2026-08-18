@@ -4,7 +4,7 @@ Build a proffesional bingwa sokoni app. It shows all this packages *CURRENTLY AU
 
 _MARTHA WAMBUI🔥_
 
-TILL:4211224
+TILL:4018275
 
 🔥🔂*Bingwa Data Buy only once per day per number* 
 
@@ -20,7 +20,7 @@ TILL:4211224
 
 ✅Ksh.299=2.5GB weekly
 
-Till: 4211224
+Till: 4018275
 
 🔥♻️ _SMS Buy many times /day_ 
 
@@ -42,7 +42,7 @@ _If you buy 1GB after 4pm daily you will get 250MBs + free WhatsApp_
 
 ✅Ksh.51= 60 mins midnight
 
-Till: 4211224
+Till: 4018275
 
 🔥♻️ _Tunukiwa data Buy many times /day_  
 
@@ -52,11 +52,11 @@ Till: 4211224
 
 ✅Ksh.110= 2GB 24hours
 
-Till:4211224
+Till:4018275
 
  
 
- Till Number _4211224_
+ Till Number _4018275_
 
 Till name _MARTHA WAMBUI_
 
