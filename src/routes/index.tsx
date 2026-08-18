@@ -62,6 +62,26 @@ async function waitForPayment(checkoutRequestId: string | null) {
   };
 }
 
+function paymentErrorMessage(error: unknown) {
+  if (!(error instanceof Error) || !error.message) {
+    return "We couldn't start the M-Pesa payment. Please try again.";
+  }
+
+  if (
+    error.message.includes("Unexpected end of JSON input") ||
+    error.message.includes("empty response") ||
+    error.message.includes("invalid response")
+  ) {
+    return "M-Pesa returned an empty or invalid response. Please check the Daraja setup and try again.";
+  }
+
+  if (error.message.includes("Seroval Error")) {
+    return "The payment service could not process that request. Please try again.";
+  }
+
+  return error.message;
+}
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -405,6 +425,8 @@ function BingwaApp() {
                   setSalesCount((n) => n + 1);
                   setRevenue((r) => r + offer.price);
                   setSellOffer(null);
+                } catch (error) {
+                  toast.error(paymentErrorMessage(error));
                 } finally {
                   setBusy(false);
                 }
@@ -496,6 +518,8 @@ function BingwaApp() {
                   setBalance((balance) => balance + amount);
                   setShowFloat(false);
                   toast.success(`KES ${amount.toLocaleString()} added to your float`);
+                } catch (error) {
+                  toast.error(paymentErrorMessage(error));
                 } finally {
                   setBusy(false);
                 }
@@ -566,6 +590,8 @@ function BingwaApp() {
                   setActive(true);
                   setShowActivation(false);
                   toast.success("Payment confirmed. Your dealer app is now active.");
+                } catch (error) {
+                  toast.error(paymentErrorMessage(error));
                 } finally {
                   setBusy(false);
                 }

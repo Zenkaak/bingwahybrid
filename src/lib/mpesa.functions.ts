@@ -28,6 +28,10 @@ type DarajaErrorResponse = {
   ResultDesc?: string;
 };
 
+type DarajaJsonResponse = Record<string, unknown> & DarajaErrorResponse;
+
+const DEFAULT_DARAJA_CALLBACK_URL = "https://bingwahybrid.vercel.app/api/public/mpesa-callback";
+
 function normalizePhone(input: string) {
   const digits = input.replace(/\D/g, "");
   if (digits.startsWith("254")) return digits;
@@ -36,14 +40,28 @@ function normalizePhone(input: string) {
   return digits;
 }
 
+async function readDarajaResponse<T extends DarajaJsonResponse>(response: Response) {
+  const text = await response.text();
+
+  if (!text.trim()) {
+    throw new Error(`M-Pesa returned an empty response (${response.status}).`);
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`M-Pesa returned an invalid response (${response.status}).`);
+  }
+}
+
 function getDarajaConfig(): DarajaConfig | null {
   const consumerKey = process.env["DARAJA_CONSUMER_KEY"];
   const consumerSecret = process.env["DARAJA_CONSUMER_SECRET"];
   const shortcode = process.env["DARAJA_SHORTCODE"];
   const passkey = process.env["DARAJA_PASSKEY"];
-  const callbackUrl = process.env["DARAJA_CALLBACK_URL"];
+  const callbackUrl = process.env["DARAJA_CALLBACK_URL"] || DEFAULT_DARAJA_CALLBACK_URL;
 
-  if (!consumerKey || !consumerSecret || !shortcode || !passkey || !callbackUrl) {
+  if (!consumerKey || !consumerSecret || !shortcode || !passkey) {
     return null;
   }
 
@@ -70,7 +88,7 @@ async function getAccessToken(config: DarajaConfig) {
       },
     },
   );
-  const body = (await response.json()) as { access_token?: string } & DarajaErrorResponse;
+  const body = await readDarajaResponse<{ access_token?: string } & DarajaJsonResponse>(response);
 
   if (!response.ok || !body.access_token) {
     throw new Error(body.errorMessage ?? "Could not authenticate with M-Pesa.");
@@ -121,10 +139,12 @@ export const stkPush = createServerFn({ method: "POST" })
         }),
       });
 
-      const json = (await response.json()) as {
-        ResponseCode?: string;
-        CheckoutRequestID?: string;
-      } & DarajaErrorResponse;
+      const json = await readDarajaResponse<
+        {
+          ResponseCode?: string;
+          CheckoutRequestID?: string;
+        } & DarajaJsonResponse
+      >(response);
 
       if (json.ResponseCode === "0") {
         return { ok: true as const, checkoutRequestId: json.CheckoutRequestID ?? null };
@@ -165,10 +185,12 @@ export const queryStk = createServerFn({ method: "POST" })
           CheckoutRequestID: data.checkoutRequestId,
         }),
       });
-      const json = (await response.json()) as {
-        ResponseCode?: string;
-        ResultCode?: string;
-      } & DarajaErrorResponse;
+      const json = await readDarajaResponse<
+        {
+          ResponseCode?: string;
+          ResultCode?: string;
+        } & DarajaJsonResponse
+      >(response);
 
       if (json.ResponseCode !== "0") {
         return {
