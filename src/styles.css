@@ -34,6 +34,9 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-glow: var(--primary-glow);
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-display: "Sora", system-ui, sans-serif;
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
