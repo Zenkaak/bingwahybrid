@@ -1,24 +1,297 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
+import {
+  ACTIVATION_FEE,
+  DEFAULT_PIN,
+  OFFER_GROUPS,
+  START_BALANCE,
+  TILL_NAME,
+  TILL_NUMBER,
+  type Offer,
+} from "@/lib/packages";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "Bingwa Sokoni — Data, SMS & Minutes Offers" },
+      {
+        name: "description",
+        content:
+          "Buy Bingwa Sokoni data, SMS, minutes and Tunukiwa offers instantly. Till 4211224 — MARTHA WAMBUI.",
+      },
+      { property: "og:title", content: "Bingwa Sokoni — Data, SMS & Minutes Offers" },
+      {
+        property: "og:description",
+        content:
+          "Automated Bingwa Sokoni offers: data from Ksh.19, SMS from Ksh.5 and minutes from Ksh.22.",
+      },
+    ],
+  }),
+  component: BingwaApp,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+function BingwaApp() {
+  const [unlocked, setUnlocked] = useState(false);
+  const [pin, setPin] = useState("");
+  const [active, setActive] = useState(false);
+  const [sellOffer, setSellOffer] = useState<Offer | null>(null);
+  const [customer, setCustomer] = useState("");
+  const [method, setMethod] = useState<"airtime" | "mpesa">("mpesa");
+  const [showActivation, setShowActivation] = useState(false);
+  const [deadline, setDeadline] = useState<number | null>(null);
+  const [left, setLeft] = useState("60:00");
+
+  useEffect(() => {
+    if (!deadline) return;
+    const tick = () => {
+      const ms = Math.max(0, deadline - Date.now());
+      const m = Math.floor(ms / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      setLeft(`${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [deadline]);
+
+  if (!unlocked) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-5">
+        <Toaster />
+        <div className="surface-card w-full max-w-sm rounded-3xl p-7 text-center">
+          <div className="gradient-primary shadow-elevated mx-auto flex size-16 items-center justify-center rounded-2xl text-2xl font-bold text-primary-foreground">
+            BS
+          </div>
+          <h1 className="mt-5 text-2xl font-bold">Bingwa Sokoni</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Enter your dealer PIN to open the dashboard
+          </p>
+          <form
+            className="mt-6 space-y-4 text-left"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (pin === DEFAULT_PIN) {
+                setUnlocked(true);
+                toast.success("Welcome back, dealer");
+              } else {
+                toast.error("Wrong PIN. Try again.");
+                setPin("");
+              }
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="pin">Dealer PIN</Label>
+              <Input
+                id="pin"
+                inputMode="numeric"
+                maxLength={4}
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                placeholder="••••"
+                className="h-12 text-center text-xl tracking-[0.6em]"
+              />
+            </div>
+            <Button type="submit" size="lg" className="w-full">
+              Unlock dashboard
+            </Button>
+          </form>
+          <p className="mt-5 text-xs text-muted-foreground">
+            Till {TILL_NUMBER} · {TILL_NAME}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <main className="mx-auto min-h-screen w-full max-w-md px-4 pb-16">
+      <Toaster />
+      <header className="pt-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary">
+          Automated offers
+        </p>
+        <h1 className="mt-2 text-3xl font-bold">Bingwa Sokoni</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Till {TILL_NUMBER} · {TILL_NAME}
+        </p>
+      </header>
+
+      <section className="surface-card mt-6 rounded-3xl p-6">
+        <p className="text-sm text-muted-foreground">Float balance</p>
+        <p className="mt-1 font-display text-4xl font-bold">
+          KES {START_BALANCE.toLocaleString()}
+        </p>
+        <div className="mt-4 flex items-center gap-2">
+          <Badge variant={active ? "default" : "secondary"}>
+            {active ? "Account active" : "Not activated"}
+          </Badge>
+          {deadline && !active ? (
+            <span className="text-xs text-accent">Activate within {left}</span>
+          ) : null}
+        </div>
+      </section>
+
+      <p className="mt-6 rounded-2xl border border-border bg-card/60 p-4 text-xs leading-relaxed text-muted-foreground">
+        <strong className="text-foreground">Please note:</strong> 1GB hourly data (Ksh.23 &amp;
+        Ksh.19) is only available daily from 11:00pm to 4:00pm. If you buy 1GB after 4pm you will
+        get 250MB + free WhatsApp.
+      </p>
+
+      {OFFER_GROUPS.map((group) => (
+        <section key={group.id} className="mt-8">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-lg font-bold">
+              <span className="mr-2">{group.icon}</span>
+              {group.name}
+            </h2>
+            <span className="text-[11px] text-muted-foreground">{group.tagline}</span>
+          </div>
+          <div className="mt-3 space-y-3">
+            {group.offers.map((offer) => (
+              <article
+                key={offer.id}
+                className="surface-card flex items-center gap-4 rounded-2xl p-4"
+              >
+                <div className="gradient-primary flex size-14 shrink-0 flex-col items-center justify-center rounded-xl text-primary-foreground">
+                  <span className="text-[10px] font-semibold opacity-80">KSH</span>
+                  <span className="text-base font-bold leading-none">{offer.price}</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">{offer.title}</p>
+                  <p className="text-xs text-muted-foreground">{offer.validity}</p>
+                  {offer.note ? (
+                    <p className="mt-0.5 text-[11px] text-accent">{offer.note}</p>
+                  ) : null}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setSellOffer(offer);
+                    setCustomer("");
+                  }}
+                >
+                  Sell
+                </Button>
+              </article>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      <footer className="mt-10 text-center text-xs text-muted-foreground">
+        Till name <strong className="text-foreground">{TILL_NAME}</strong> · Till number{" "}
+        <strong className="text-foreground">{TILL_NUMBER}</strong>
+      </footer>
+
+      <Dialog open={!!sellOffer} onOpenChange={(o) => !o && setSellOffer(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              Sell {sellOffer?.title} · Ksh.{sellOffer?.price}
+            </DialogTitle>
+            <DialogDescription>{sellOffer?.validity}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="customer">Customer number</Label>
+              <Input
+                id="customer"
+                inputMode="tel"
+                placeholder="07XX XXX XXX"
+                value={customer}
+                onChange={(e) => setCustomer(e.target.value.replace(/[^\d+]/g, ""))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Pay with</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {(["airtime", "mpesa"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMethod(m)}
+                    className={`rounded-xl border p-3 text-sm font-medium capitalize transition-colors ${
+                      method === m
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "border-border bg-card text-muted-foreground"
+                    }`}
+                  >
+                    {m === "mpesa" ? "M-Pesa" : "Airtime"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              className="w-full"
+              onClick={() => {
+                if (customer.replace(/\D/g, "").length < 9) {
+                  toast.error("Enter a valid customer number");
+                  return;
+                }
+                if (!active) {
+                  setSellOffer(null);
+                  setDeadline(Date.now() + 60 * 60 * 1000);
+                  setShowActivation(true);
+                  toast.error("Your app is not active");
+                  return;
+                }
+                setSellOffer(null);
+                toast.success(`${sellOffer?.title} sent to ${customer}`);
+              }}
+            >
+              Confirm sale
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showActivation} onOpenChange={setShowActivation}>
+        <DialogContent className="max-w-sm text-center">
+          <DialogHeader>
+            <DialogTitle>Your app is not active</DialogTitle>
+            <DialogDescription>
+              Activate your dealer account with a one-off fee of Ksh.{ACTIVATION_FEE}. Activation
+              must be completed within 1 hour or your float will be reversed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="surface-card rounded-2xl p-4">
+            <p className="text-xs text-muted-foreground">Time remaining</p>
+            <p className="font-display text-3xl font-bold text-accent">{left}</p>
+          </div>
+          <DialogFooter>
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={() => {
+                setActive(true);
+                setShowActivation(false);
+                toast.success("Activation request sent. Enter your M-Pesa PIN on your phone.");
+              }}
+            >
+              Activate now · Ksh.{ACTIVATION_FEE}
+            </Button>
+          </DialogFooter>
+          <p className="text-[11px] text-muted-foreground">
+            Payment goes to Till {TILL_NUMBER} · {TILL_NAME}
+          </p>
+        </DialogContent>
+      </Dialog>
+    </main>
   );
 }
