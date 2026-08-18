@@ -48,12 +48,20 @@ function BingwaApp() {
   const [unlocked, setUnlocked] = useState(false);
   const [pin, setPin] = useState("");
   const [active, setActive] = useState(false);
+  const [balance, setBalance] = useState(START_BALANCE);
+  const [salesCount, setSalesCount] = useState(0);
+  const [revenue, setRevenue] = useState(0);
+  const [showFloat, setShowFloat] = useState(false);
+  const [floatAmount, setFloatAmount] = useState("");
+  const [floatPhone, setFloatPhone] = useState("");
+  const [busy, setBusy] = useState(false);
   const [sellOffer, setSellOffer] = useState<Offer | null>(null);
   const [customer, setCustomer] = useState("");
   const [method, setMethod] = useState<"airtime" | "mpesa">("mpesa");
   const [showActivation, setShowActivation] = useState(false);
   const [deadline, setDeadline] = useState<number | null>(null);
   const [left, setLeft] = useState("60:00");
+
 
   useEffect(() => {
     if (!deadline) return;
@@ -130,20 +138,65 @@ function BingwaApp() {
         </p>
       </header>
 
-      <section className="surface-card mt-6 rounded-3xl p-6">
-        <p className="text-sm text-muted-foreground">Float balance</p>
-        <p className="mt-1 font-display text-4xl font-bold">
-          KES {START_BALANCE.toLocaleString()}
-        </p>
-        <div className="mt-4 flex items-center gap-2">
-          <Badge variant={active ? "default" : "secondary"}>
-            {active ? "Account active" : "Not activated"}
-          </Badge>
-          {deadline && !active ? (
-            <span className="text-xs text-accent">Activate within {left}</span>
-          ) : null}
+      <section className="surface-card shadow-elevated mt-6 overflow-hidden rounded-3xl">
+        <div className="flex items-start justify-between gap-4 p-6 pb-5">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              Float balance
+            </p>
+            <p className="mt-1 font-display text-4xl font-bold">
+              KES {balance.toLocaleString()}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Badge variant={active ? "default" : "secondary"}>
+                {active ? "Account active" : "Not activated"}
+              </Badge>
+              {deadline && !active ? (
+                <span className="text-xs text-accent">Activate within {left}</span>
+              ) : null}
+            </div>
+          </div>
+          <div className="grid w-[9.5rem] shrink-0 gap-2">
+            <Button
+              size="sm"
+              className="w-full"
+              disabled={active}
+              onClick={() => {
+                setDeadline(Date.now() + 60 * 60 * 1000);
+                setShowActivation(true);
+              }}
+            >
+              {active ? "Activated" : "Activate app"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setFloatAmount("");
+                setShowFloat(true);
+              }}
+            >
+              Add float
+            </Button>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 divide-x divide-border border-t border-border bg-background/30 text-center">
+          <div className="p-3">
+            <p className="text-sm font-semibold">{salesCount}</p>
+            <p className="text-[11px] text-muted-foreground">Sales today</p>
+          </div>
+          <div className="p-3">
+            <p className="text-sm font-semibold">KES {revenue.toLocaleString()}</p>
+            <p className="text-[11px] text-muted-foreground">Revenue</p>
+          </div>
+          <div className="p-3">
+            <p className="text-sm font-semibold">{TILL_NUMBER}</p>
+            <p className="text-[11px] text-muted-foreground">Till</p>
+          </div>
         </div>
       </section>
+
 
       <p className="mt-6 rounded-2xl border border-border bg-card/60 p-4 text-xs leading-relaxed text-muted-foreground">
         <strong className="text-foreground">Please note:</strong> 1GB hourly data (Ksh.23 &amp;
@@ -239,7 +292,8 @@ function BingwaApp() {
           <DialogFooter>
             <Button
               className="w-full"
-              onClick={() => {
+              disabled={busy}
+              onClick={async () => {
                 if (customer.replace(/\D/g, "").length < 9) {
                   toast.error("Enter a valid customer number");
                   return;
@@ -251,11 +305,121 @@ function BingwaApp() {
                   toast.error("Your app is not active");
                   return;
                 }
-                setSellOffer(null);
-                toast.success(`${sellOffer?.title} sent to ${customer}`);
+                const offer = sellOffer!;
+                if (method === "airtime" && balance < offer.price) {
+                  toast.error("Not enough float. Add float to continue.");
+                  return;
+                }
+                setBusy(true);
+                try {
+                  if (method === "mpesa") {
+                    const res = await push({
+                      data: {
+                        phone: customer,
+                        amount: offer.price,
+                        reference: TILL_NUMBER,
+                        description: `${offer.title} ${offer.validity}`,
+                      },
+                    });
+                    if (!res.ok) {
+                      toast.error(res.error);
+                      return;
+                    }
+                    toast.success(`STK push sent to ${customer}`);
+                  } else {
+                    setBalance((b) => b - offer.price);
+                    toast.success(`${offer.title} sent to ${customer} from float`);
+                  }
+                  setSalesCount((n) => n + 1);
+                  setRevenue((r) => r + offer.price);
+                  setSellOffer(null);
+                } finally {
+                  setBusy(false);
+                }
               }}
             >
-              Confirm sale
+              {busy ? "Processing…" : "Confirm sale"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showFloat} onOpenChange={setShowFloat}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add float</DialogTitle>
+            <DialogDescription>
+              We'll send an M-Pesa prompt to your phone. Payment goes to Till {TILL_NUMBER}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="float-phone">Your M-Pesa number</Label>
+              <Input
+                id="float-phone"
+                inputMode="tel"
+                placeholder="07XX XXX XXX"
+                value={floatPhone}
+                onChange={(e) => setFloatPhone(e.target.value.replace(/[^\d+]/g, ""))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="float-amount">Amount (KES)</Label>
+              <Input
+                id="float-amount"
+                inputMode="numeric"
+                placeholder="1000"
+                value={floatAmount}
+                onChange={(e) => setFloatAmount(e.target.value.replace(/\D/g, ""))}
+              />
+            </div>
+            <div className="flex gap-2">
+              {[500, 1000, 5000].map((a) => (
+                <Button
+                  key={a}
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setFloatAmount(String(a))}
+                >
+                  {a.toLocaleString()}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              className="w-full"
+              size="lg"
+              disabled={busy}
+              onClick={async () => {
+                const amount = Number(floatAmount);
+                if (floatPhone.replace(/\D/g, "").length < 9 || !amount) {
+                  toast.error("Enter your number and an amount");
+                  return;
+                }
+                setBusy(true);
+                try {
+                  const res = await push({
+                    data: {
+                      phone: floatPhone,
+                      amount,
+                      reference: TILL_NUMBER,
+                      description: "Float top-up",
+                    },
+                  });
+                  if (!res.ok) {
+                    toast.error(res.error);
+                    return;
+                  }
+                  toast.success("Enter your M-Pesa PIN to complete the top-up");
+                  setShowFloat(false);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy ? "Sending prompt…" : "Send M-Pesa prompt"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -274,17 +438,49 @@ function BingwaApp() {
             <p className="text-xs text-muted-foreground">Time remaining</p>
             <p className="font-display text-3xl font-bold text-accent">{left}</p>
           </div>
+          <div className="space-y-2 text-left">
+            <Label htmlFor="act-phone">Your M-Pesa number</Label>
+            <Input
+              id="act-phone"
+              inputMode="tel"
+              placeholder="07XX XXX XXX"
+              value={floatPhone}
+              onChange={(e) => setFloatPhone(e.target.value.replace(/[^\d+]/g, ""))}
+            />
+          </div>
           <DialogFooter>
             <Button
               className="w-full"
               size="lg"
-              onClick={() => {
-                setActive(true);
-                setShowActivation(false);
-                toast.success("Activation request sent. Enter your M-Pesa PIN on your phone.");
+              disabled={busy}
+              onClick={async () => {
+                if (floatPhone.replace(/\D/g, "").length < 9) {
+                  toast.error("Enter your M-Pesa number");
+                  return;
+                }
+                setBusy(true);
+                try {
+                  const res = await push({
+                    data: {
+                      phone: floatPhone,
+                      amount: ACTIVATION_FEE,
+                      reference: TILL_NUMBER,
+                      description: "App activation",
+                    },
+                  });
+                  if (!res.ok) {
+                    toast.error(res.error);
+                    return;
+                  }
+                  setActive(true);
+                  setShowActivation(false);
+                  toast.success("Activation prompt sent. Enter your M-Pesa PIN.");
+                } finally {
+                  setBusy(false);
+                }
               }}
             >
-              Activate now · Ksh.{ACTIVATION_FEE}
+              {busy ? "Sending prompt…" : `Activate now · Ksh.${ACTIVATION_FEE}`}
             </Button>
           </DialogFooter>
           <p className="text-[11px] text-muted-foreground">
@@ -292,6 +488,7 @@ function BingwaApp() {
           </p>
         </DialogContent>
       </Dialog>
+
     </main>
   );
 }
