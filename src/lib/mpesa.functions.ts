@@ -6,6 +6,8 @@ export const stkSchema = z.object({
   amount: z.number().int().positive(),
   reference: z.string().min(1).max(20),
   description: z.string().min(1).max(60),
+  // When set, collection is routed to this till/store instead of the default paybill.
+  till: z.string().min(4).max(12).optional(),
 });
 
 export const querySchema = z.object({
@@ -139,13 +141,13 @@ export async function performStkPush(data: StkInput) {
         BusinessShortCode: config.shortcode,
         Password: password,
         Timestamp: stamp,
-        TransactionType: config.transactionType,
+        TransactionType: data.till ? "CustomerBuyGoodsOnline" : config.transactionType,
         Amount: data.amount,
         PartyA: phone,
-        PartyB: config.shortcode,
+        PartyB: data.till ?? config.shortcode,
         PhoneNumber: phone,
         CallBackURL: config.callbackUrl,
-        AccountReference: data.reference,
+        AccountReference: data.till ?? data.reference,
         TransactionDesc: data.description,
       }),
     });
