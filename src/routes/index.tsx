@@ -679,11 +679,11 @@ function BingwaApp() {
               onChange={(e) => setFloatPhone(e.target.value.replace(/[^\d+]/g, ""))}
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
             <Button
               className="w-full"
               size="lg"
-              disabled={busy}
+              disabled={busy || verifying}
               onClick={async () => {
                 if (floatPhone.replace(/\D/g, "").length < 9) {
                   toast.error("Enter your M-Pesa number");
@@ -701,21 +701,18 @@ function BingwaApp() {
                     toast.error(res.error);
                     return;
                   }
+                  if (res.checkoutRequestId) setPendingActivation(res.checkoutRequestId);
                   const payment = await waitForPayment(res.checkoutRequestId);
                   if (payment.status === "failed") {
+                    setPendingActivation(null);
                     toast.error(payment.message);
                     return;
                   }
                   if (payment.status === "pending") {
-                    toast.info(payment.message);
+                    toast.info(`${payment.message} Tap "I've already paid" to re-check.`);
                     return;
                   }
-                  setBalance((balance) => balance + ACTIVATION_FEE);
-                  setActive(true);
-                  setShowActivation(false);
-                  toast.success(
-                    `Payment confirmed. KES ${ACTIVATION_FEE.toLocaleString()} added to your float.`,
-                  );
+                  applyActivation();
                 } catch (error) {
                   toast.error(paymentErrorMessage(error));
                 } finally {
@@ -725,7 +722,23 @@ function BingwaApp() {
             >
               {busy ? "Sending prompt…" : `Activate now · Ksh.${ACTIVATION_FEE}`}
             </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              size="lg"
+              disabled={busy || verifying}
+              onClick={async () => {
+                if (!pendingActivation) {
+                  toast.info("Send the activation prompt first, then confirm on your phone.");
+                  return;
+                }
+                await verifyActivation(pendingActivation);
+              }}
+            >
+              {verifying ? "Checking payment…" : "I've already paid · Verify"}
+            </Button>
           </DialogFooter>
+
           <p className="text-[11px] text-muted-foreground">
             Your activation payment will be verified automatically · {TILL_NAME}
           </p>
