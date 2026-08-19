@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       app_settings: {
         Row: {
+          activated: boolean
+          activated_at: string | null
           admin_pin: string
           commission_per_ten: number
           float_balance: number
@@ -27,6 +29,8 @@ export type Database = {
           withdraw_threshold: number
         }
         Insert: {
+          activated?: boolean
+          activated_at?: string | null
           admin_pin?: string
           commission_per_ten?: number
           float_balance?: number
@@ -38,6 +42,8 @@ export type Database = {
           withdraw_threshold?: number
         }
         Update: {
+          activated?: boolean
+          activated_at?: string | null
           admin_pin?: string
           commission_per_ten?: number
           float_balance?: number
