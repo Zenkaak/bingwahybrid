@@ -230,6 +230,9 @@ function BingwaApp() {
         if (typeof saved.deadline === "number" || saved.deadline === null) {
           setDeadline(saved.deadline);
         }
+        if (typeof saved.pendingActivation === "string") {
+          setPendingActivation(saved.pendingActivation);
+        }
       }
     } catch {
       window.localStorage.removeItem(DASHBOARD_STATE_KEY);
@@ -240,9 +243,23 @@ function BingwaApp() {
 
   useEffect(() => {
     if (!stateHydrated) return;
-    const state: DashboardState = { active, balance, salesCount, revenue, deadline };
+    const state: DashboardState = {
+      active,
+      balance,
+      salesCount,
+      revenue,
+      deadline,
+      pendingActivation,
+    };
     window.localStorage.setItem(DASHBOARD_STATE_KEY, JSON.stringify(state));
-  }, [active, balance, salesCount, revenue, deadline, stateHydrated]);
+  }, [active, balance, salesCount, revenue, deadline, pendingActivation, stateHydrated]);
+
+  useEffect(() => {
+    if (!stateHydrated || active || !pendingActivation) return;
+    void verifyActivation(pendingActivation, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stateHydrated, active, pendingActivation]);
+
 
   useEffect(() => {
     if (!deadline) return;
