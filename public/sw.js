@@ -1,4 +1,4 @@
-const CACHE_NAME = "bingwa-sokoni-shell-v1";
+const CACHE_NAME = "bingwa-sokoni-shell-v2";
 const SHELL_ASSETS = ["/", "/manifest.webmanifest", "/favicon.ico"];
 
 self.addEventListener("install", (event) => {
@@ -26,6 +26,24 @@ self.addEventListener("fetch", (event) => {
 
   const requestUrl = new URL(event.request.url);
   if (requestUrl.origin !== self.location.origin || requestUrl.pathname.startsWith("/api/")) {
+    return;
+  }
+
+  // Always prefer fresh HTML for navigations. Serving a cached document here
+  // can make a previous route (such as /admin) appear at the public root
+  // after a deployment.
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok && response.type === "basic") {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached ?? Response.error())),
+    );
     return;
   }
 
