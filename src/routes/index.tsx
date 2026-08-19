@@ -34,7 +34,9 @@ type DashboardState = {
   salesCount: number;
   revenue: number;
   deadline: number | null;
+  pendingActivation?: string | null;
 };
+
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
