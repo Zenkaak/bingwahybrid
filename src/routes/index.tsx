@@ -160,7 +160,41 @@ function BingwaApp() {
   const [deadline, setDeadline] = useState<number | null>(null);
   const [left, setLeft] = useState("60:00");
   const [stateHydrated, setStateHydrated] = useState(false);
+  const [pendingActivation, setPendingActivation] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  const applyActivation = (message?: string) => {
+    setActive(true);
+    setPendingActivation(null);
+    setShowActivation(false);
+    setBalance((current) => current + ACTIVATION_FEE);
+    toast.success(
+      message ?? `Payment confirmed. KES ${ACTIVATION_FEE.toLocaleString()} added to your float.`,
+    );
+  };
+
+  const verifyActivation = async (checkoutRequestId: string, silent = false) => {
+    setVerifying(true);
+    try {
+      const payment = await waitForPayment(checkoutRequestId);
+      if (payment.status === "success") {
+        applyActivation();
+        return;
+      }
+      if (payment.status === "failed") {
+        setPendingActivation(null);
+        if (!silent) toast.error(payment.message);
+        return;
+      }
+      if (!silent) toast.info(payment.message);
+    } catch (error) {
+      if (!silent) toast.error(paymentErrorMessage(error));
+    } finally {
+      setVerifying(false);
+    }
+  };
+
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (event: Event) => {
