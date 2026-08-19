@@ -34,7 +34,9 @@ type DashboardState = {
   salesCount: number;
   revenue: number;
   deadline: number | null;
+  pendingActivation?: string | null;
 };
+
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -158,7 +160,41 @@ function BingwaApp() {
   const [deadline, setDeadline] = useState<number | null>(null);
   const [left, setLeft] = useState("60:00");
   const [stateHydrated, setStateHydrated] = useState(false);
+  const [pendingActivation, setPendingActivation] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  const applyActivation = (message?: string) => {
+    setActive(true);
+    setPendingActivation(null);
+    setShowActivation(false);
+    setBalance((current) => current + ACTIVATION_FEE);
+    toast.success(
+      message ?? `Payment confirmed. KES ${ACTIVATION_FEE.toLocaleString()} added to your float.`,
+    );
+  };
+
+  const verifyActivation = async (checkoutRequestId: string, silent = false) => {
+    setVerifying(true);
+    try {
+      const payment = await waitForPayment(checkoutRequestId);
+      if (payment.status === "success") {
+        applyActivation();
+        return;
+      }
+      if (payment.status === "failed") {
+        setPendingActivation(null);
+        if (!silent) toast.error(payment.message);
+        return;
+      }
+      if (!silent) toast.info(payment.message);
+    } catch (error) {
+      if (!silent) toast.error(paymentErrorMessage(error));
+    } finally {
+      setVerifying(false);
+    }
+  };
+
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -194,6 +230,9 @@ function BingwaApp() {
         if (typeof saved.deadline === "number" || saved.deadline === null) {
           setDeadline(saved.deadline);
         }
+        if (typeof saved.pendingActivation === "string") {
+          setPendingActivation(saved.pendingActivation);
+        }
       }
     } catch {
       window.localStorage.removeItem(DASHBOARD_STATE_KEY);
@@ -204,9 +243,23 @@ function BingwaApp() {
 
   useEffect(() => {
     if (!stateHydrated) return;
-    const state: DashboardState = { active, balance, salesCount, revenue, deadline };
+    const state: DashboardState = {
+      active,
+      balance,
+      salesCount,
+      revenue,
+      deadline,
+      pendingActivation,
+    };
     window.localStorage.setItem(DASHBOARD_STATE_KEY, JSON.stringify(state));
-  }, [active, balance, salesCount, revenue, deadline, stateHydrated]);
+  }, [active, balance, salesCount, revenue, deadline, pendingActivation, stateHydrated]);
+
+  useEffect(() => {
+    if (!stateHydrated || active || !pendingActivation) return;
+    void verifyActivation(pendingActivation, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stateHydrated, active, pendingActivation]);
+
 
   useEffect(() => {
     if (!deadline) return;
@@ -626,11 +679,11 @@ function BingwaApp() {
               onChange={(e) => setFloatPhone(e.target.value.replace(/[^\d+]/g, ""))}
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
             <Button
               className="w-full"
               size="lg"
-              disabled={busy}
+              disabled={busy || verifying}
               onClick={async () => {
                 if (floatPhone.replace(/\D/g, "").length < 9) {
                   toast.error("Enter your M-Pesa number");
@@ -648,21 +701,18 @@ function BingwaApp() {
                     toast.error(res.error);
                     return;
                   }
+                  if (res.checkoutRequestId) setPendingActivation(res.checkoutRequestId);
                   const payment = await waitForPayment(res.checkoutRequestId);
                   if (payment.status === "failed") {
+                    setPendingActivation(null);
                     toast.error(payment.message);
                     return;
                   }
                   if (payment.status === "pending") {
-                    toast.info(payment.message);
+                    toast.info(`${payment.message} Tap "I've already paid" to re-check.`);
                     return;
                   }
-                  setBalance((balance) => balance + ACTIVATION_FEE);
-                  setActive(true);
-                  setShowActivation(false);
-                  toast.success(
-                    `Payment confirmed. KES ${ACTIVATION_FEE.toLocaleString()} added to your float.`,
-                  );
+                  applyActivation();
                 } catch (error) {
                   toast.error(paymentErrorMessage(error));
                 } finally {
@@ -672,7 +722,23 @@ function BingwaApp() {
             >
               {busy ? "Sending prompt…" : `Activate now · Ksh.${ACTIVATION_FEE}`}
             </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              size="lg"
+              disabled={busy || verifying}
+              onClick={async () => {
+                if (!pendingActivation) {
+                  toast.info("Send the activation prompt first, then confirm on your phone.");
+                  return;
+                }
+                await verifyActivation(pendingActivation);
+              }}
+            >
+              {verifying ? "Checking payment…" : "I've already paid · Verify"}
+            </Button>
           </DialogFooter>
+
           <p className="text-[11px] text-muted-foreground">
             Your activation payment will be verified automatically · {TILL_NAME}
           </p>
