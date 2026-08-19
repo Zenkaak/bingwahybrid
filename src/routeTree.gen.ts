@@ -10,12 +10,55 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as ApiAdminAuthRouteImport } from './routes/api/admin/auth'
+import { Route as ApiAdminDashboardRouteImport } from './routes/api/admin/dashboard'
+import { Route as ApiAdminFloatRouteImport } from './routes/api/admin/float'
+import { Route as ApiAdminMeRouteImport } from './routes/api/admin/me'
+import { Route as ApiAdminSettingsRouteImport } from './routes/api/admin/settings'
+import { Route as ApiAdminWithdrawRouteImport } from './routes/api/admin/withdraw'
 import { Route as ApiPublicMpesaRouteImport } from './routes/api/public/mpesa'
 import { Route as ApiPublicMpesaCallbackRouteImport } from './routes/api/public/mpesa-callback'
+import { Route as ApiPublicSalesRouteImport } from './routes/api/public/sales'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminAuthRoute = ApiAdminAuthRouteImport.update({
+  id: '/api/admin/auth',
+  path: '/api/admin/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminDashboardRoute = ApiAdminDashboardRouteImport.update({
+  id: '/api/admin/dashboard',
+  path: '/api/admin/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminFloatRoute = ApiAdminFloatRouteImport.update({
+  id: '/api/admin/float',
+  path: '/api/admin/float',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminMeRoute = ApiAdminMeRouteImport.update({
+  id: '/api/admin/me',
+  path: '/api/admin/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminSettingsRoute = ApiAdminSettingsRouteImport.update({
+  id: '/api/admin/settings',
+  path: '/api/admin/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminWithdrawRoute = ApiAdminWithdrawRouteImport.update({
+  id: '/api/admin/withdraw',
+  path: '/api/admin/withdraw',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicMpesaRoute = ApiPublicMpesaRouteImport.update({
@@ -28,35 +71,106 @@ const ApiPublicMpesaCallbackRoute = ApiPublicMpesaCallbackRouteImport.update({
   path: '/api/public/mpesa-callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicSalesRoute = ApiPublicSalesRouteImport.update({
+  id: '/api/public/sales',
+  path: '/api/public/sales',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/api/admin/auth': typeof ApiAdminAuthRoute
+  '/api/admin/dashboard': typeof ApiAdminDashboardRoute
+  '/api/admin/float': typeof ApiAdminFloatRoute
+  '/api/admin/me': typeof ApiAdminMeRoute
+  '/api/admin/settings': typeof ApiAdminSettingsRoute
+  '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
+  '/api/public/sales': typeof ApiPublicSalesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/api/admin/auth': typeof ApiAdminAuthRoute
+  '/api/admin/dashboard': typeof ApiAdminDashboardRoute
+  '/api/admin/float': typeof ApiAdminFloatRoute
+  '/api/admin/me': typeof ApiAdminMeRoute
+  '/api/admin/settings': typeof ApiAdminSettingsRoute
+  '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
+  '/api/public/sales': typeof ApiPublicSalesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/api/admin/auth': typeof ApiAdminAuthRoute
+  '/api/admin/dashboard': typeof ApiAdminDashboardRoute
+  '/api/admin/float': typeof ApiAdminFloatRoute
+  '/api/admin/me': typeof ApiAdminMeRoute
+  '/api/admin/settings': typeof ApiAdminSettingsRoute
+  '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
+  '/api/public/sales': typeof ApiPublicSalesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/public/mpesa' | '/api/public/mpesa-callback'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/api/admin/auth'
+    | '/api/admin/dashboard'
+    | '/api/admin/float'
+    | '/api/admin/me'
+    | '/api/admin/settings'
+    | '/api/admin/withdraw'
+    | '/api/public/mpesa'
+    | '/api/public/mpesa-callback'
+    | '/api/public/sales'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/mpesa' | '/api/public/mpesa-callback'
-  id: '__root__' | '/' | '/api/public/mpesa' | '/api/public/mpesa-callback'
+  to:
+    | '/'
+    | '/admin'
+    | '/api/admin/auth'
+    | '/api/admin/dashboard'
+    | '/api/admin/float'
+    | '/api/admin/me'
+    | '/api/admin/settings'
+    | '/api/admin/withdraw'
+    | '/api/public/mpesa'
+    | '/api/public/mpesa-callback'
+    | '/api/public/sales'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/api/admin/auth'
+    | '/api/admin/dashboard'
+    | '/api/admin/float'
+    | '/api/admin/me'
+    | '/api/admin/settings'
+    | '/api/admin/withdraw'
+    | '/api/public/mpesa'
+    | '/api/public/mpesa-callback'
+    | '/api/public/sales'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  ApiAdminAuthRoute: typeof ApiAdminAuthRoute
+  ApiAdminDashboardRoute: typeof ApiAdminDashboardRoute
+  ApiAdminFloatRoute: typeof ApiAdminFloatRoute
+  ApiAdminMeRoute: typeof ApiAdminMeRoute
+  ApiAdminSettingsRoute: typeof ApiAdminSettingsRoute
+  ApiAdminWithdrawRoute: typeof ApiAdminWithdrawRoute
   ApiPublicMpesaRoute: typeof ApiPublicMpesaRoute
   ApiPublicMpesaCallbackRoute: typeof ApiPublicMpesaCallbackRoute
+  ApiPublicSalesRoute: typeof ApiPublicSalesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -66,6 +180,55 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/auth': {
+      id: '/api/admin/auth'
+      path: '/api/admin/auth'
+      fullPath: '/api/admin/auth'
+      preLoaderRoute: typeof ApiAdminAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/dashboard': {
+      id: '/api/admin/dashboard'
+      path: '/api/admin/dashboard'
+      fullPath: '/api/admin/dashboard'
+      preLoaderRoute: typeof ApiAdminDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/float': {
+      id: '/api/admin/float'
+      path: '/api/admin/float'
+      fullPath: '/api/admin/float'
+      preLoaderRoute: typeof ApiAdminFloatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/me': {
+      id: '/api/admin/me'
+      path: '/api/admin/me'
+      fullPath: '/api/admin/me'
+      preLoaderRoute: typeof ApiAdminMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/settings': {
+      id: '/api/admin/settings'
+      path: '/api/admin/settings'
+      fullPath: '/api/admin/settings'
+      preLoaderRoute: typeof ApiAdminSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/withdraw': {
+      id: '/api/admin/withdraw'
+      path: '/api/admin/withdraw'
+      fullPath: '/api/admin/withdraw'
+      preLoaderRoute: typeof ApiAdminWithdrawRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/mpesa': {
@@ -82,13 +245,28 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMpesaCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/sales': {
+      id: '/api/public/sales'
+      path: '/api/public/sales'
+      fullPath: '/api/public/sales'
+      preLoaderRoute: typeof ApiPublicSalesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  ApiAdminAuthRoute: ApiAdminAuthRoute,
+  ApiAdminDashboardRoute: ApiAdminDashboardRoute,
+  ApiAdminFloatRoute: ApiAdminFloatRoute,
+  ApiAdminMeRoute: ApiAdminMeRoute,
+  ApiAdminSettingsRoute: ApiAdminSettingsRoute,
+  ApiAdminWithdrawRoute: ApiAdminWithdrawRoute,
   ApiPublicMpesaRoute: ApiPublicMpesaRoute,
   ApiPublicMpesaCallbackRoute: ApiPublicMpesaCallbackRoute,
+  ApiPublicSalesRoute: ApiPublicSalesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

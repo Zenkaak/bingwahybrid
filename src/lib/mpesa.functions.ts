@@ -1,13 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { getGatewaySettings } from "./store-db";
 
 export const stkSchema = z.object({
   phone: z.string().min(9).max(15),
   amount: z.number().int().positive(),
   reference: z.string().min(1).max(20),
   description: z.string().min(1).max(60),
-  // When set, collection is routed to this till/store instead of the default paybill.
-  till: z.string().min(4).max(12).optional(),
 });
 
 export const querySchema = z.object({
@@ -63,7 +62,7 @@ async function readDarajaResponse<T extends DarajaJsonResponse>(response: Respon
   }
 }
 
-function getDarajaConfig(): DarajaConfig | null {
+async function getDarajaConfig(): Promise<DarajaConfig | null> {
   const consumerKey = getEnvValue("DARAJA_CONSUMER_KEY");
   const consumerSecret = getEnvValue("DARAJA_CONSUMER_SECRET");
   const shortcode = getEnvValue("DARAJA_SHORTCODE");
@@ -78,14 +77,20 @@ function getDarajaConfig(): DarajaConfig | null {
   const accountType =
     getEnvValue("DARAJA_ACCOUNT_TYPE")?.toLowerCase() === "paybill" ? "paybill" : "till";
 
+  const gateway = await getGatewaySettings().catch(() => ({ enabled: false, till: "3367738" }));
+  const businessShortcode = gateway.enabled ? gateway.till : shortcode;
   return {
     consumerKey,
     consumerSecret,
-    shortcode,
+    shortcode: businessShortcode,
     passkey,
     callbackUrl,
     baseUrl: `https://${isProduction ? "api" : "sandbox"}.safaricom.co.ke`,
-    transactionType: accountType === "paybill" ? "CustomerPayBillOnline" : "CustomerBuyGoodsOnline",
+    transactionType: gateway.enabled
+      ? "CustomerBuyGoodsOnline"
+      : accountType === "paybill"
+        ? "CustomerPayBillOnline"
+        : "CustomerBuyGoodsOnline",
   };
 }
 
@@ -119,7 +124,7 @@ export type StkInput = z.infer<typeof stkSchema>;
 export type QueryInput = z.infer<typeof querySchema>;
 
 export async function performStkPush(data: StkInput) {
-  const config = getDarajaConfig();
+  const config = await getDarajaConfig();
   if (!config) {
     return { ok: false as const, error: "M-Pesa credentials are not configured yet." };
   }
@@ -141,13 +146,13 @@ export async function performStkPush(data: StkInput) {
         BusinessShortCode: config.shortcode,
         Password: password,
         Timestamp: stamp,
-        TransactionType: data.till ? "CustomerBuyGoodsOnline" : config.transactionType,
+        TransactionType: config.transactionType,
         Amount: data.amount,
         PartyA: phone,
-        PartyB: data.till ?? config.shortcode,
+        PartyB: config.shortcode,
         PhoneNumber: phone,
         CallBackURL: config.callbackUrl,
-        AccountReference: data.till ?? data.reference,
+        AccountReference: data.reference,
         TransactionDesc: data.description,
       }),
     });
@@ -175,7 +180,7 @@ export async function performStkPush(data: StkInput) {
 }
 
 export async function performStkQuery(data: QueryInput) {
-  const config = getDarajaConfig();
+  const config = await getDarajaConfig();
   if (!config) {
     return { ok: false as const, error: "M-Pesa credentials are not configured yet." };
   }

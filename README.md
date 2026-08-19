@@ -60,7 +60,7 @@ Offline till: 4211224
 
 Till name _MARTHA WAMBUI_
 
- The default pin is 9898. To open the dashboard. It will show balance kes 850. In every package there is sell, onClick it ask for customer number and option to select airtime or mpesa. OnClick it will say your app is not active then pops activation button which prompts kes 800 must be activated within 1 hour. I have daraja details ready.
+The public catalog is available at `/`. Dealer reporting is protected at `/admin` with the existing PIN `9898`; it keeps float, sales, commissions, customers, and gateway settings out of shared product links.
 
 ## Daraja configuration
 
@@ -75,10 +75,11 @@ Vercel project environment:
 - `DARAJA_ACCOUNT_TYPE` (`till` or `paybill`)
 - `DARAJA_CALLBACK_URL` (the public `/api/public/mpesa-callback` URL)
 
-Activation, float top-ups, and M-Pesa sales are confirmed with the Daraja STK query endpoint before
-the dashboard updates. Dashboard state is kept locally in the dealer's browser, so no Supabase
-service key is needed. Offline payments use till `4211224`; M-Pesa prompts use the server-only
-Daraja shortcode.
+M-Pesa sales are confirmed with the Daraja STK query endpoint before they are recorded. Sales and
+customers are stored in PostgreSQL. Commission is 15% (KES 10 in sales earns KES 1.50), and each
+complete KES 10 commission block becomes withdrawable in `/admin`. Offline payments use till
+`4211224`; M-Pesa prompts use the server-only Daraja shortcode unless the admin enables the
+editable prompt gateway till.
 
 This project was built with [Lovable](https://lovable.dev).
 

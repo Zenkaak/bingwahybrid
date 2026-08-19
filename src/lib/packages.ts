@@ -1,7 +1,5 @@
 export const OFFLINE_TILL_NUMBER = "4211224";
 export const TILL_NAME = "MARTHA WAMBUI";
-export const DEFAULT_PIN = "9898";
-export const START_BALANCE = 850;
 export const ACTIVATION_FEE = 800;
 
 export type ServiceReference = "data" | "sms" | "minutes" | "tunukiwa";
@@ -85,3 +83,11 @@ export const OFFER_GROUPS: OfferGroup[] = [
     ],
   },
 ];
+
+export function findOffer(offerId: string) {
+  for (const group of OFFER_GROUPS) {
+    const offer = group.offers.find((item) => item.id === offerId);
+    if (offer) return offer;
+  }
+  return null;
+}

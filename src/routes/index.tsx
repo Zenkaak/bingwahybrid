@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -11,330 +11,154 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Toaster } from "@/components/ui/sonner";
-import {
-  ACTIVATION_FEE,
-  DEFAULT_PIN,
-  OFFER_GROUPS,
-  OFFLINE_TILL_NUMBER,
-  START_BALANCE,
-  TILL_NAME,
-  type Offer,
-} from "@/lib/packages";
+import { OFFER_GROUPS, type Offer } from "@/lib/packages";
 
 const PAYMENT_POLL_ATTEMPTS = 10;
 const PAYMENT_POLL_DELAY_MS = 3000;
-const DASHBOARD_STATE_KEY = "bingwa-sokoni-dashboard";
 
-type DashboardState = {
-  active: boolean;
-  balance: number;
-  salesCount: number;
-  revenue: number;
-  deadline: number | null;
-  pendingActivation?: string | null;
-};
+type PaymentResult = { ok: true; checkoutRequestId: string | null } | { ok: false; error: string };
 
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-};
+async function requestPayment(
+  action: "stkPush" | "stkQuery",
+  data: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const response = await fetch("/api/public/mpesa", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action, data }),
+  });
+  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok) throw new Error(String(body.error ?? "Payment service rejected the request."));
+  return body;
+}
 
 async function waitForPayment(checkoutRequestId: string | null) {
-  if (!checkoutRequestId) {
-    return { status: "pending" as const, message: "Payment prompt sent. Awaiting confirmation." };
-  }
-
+  if (!checkoutRequestId)
+    return { status: "pending" as const, message: "Prompt sent. Awaiting confirmation." };
   for (let attempt = 0; attempt < PAYMENT_POLL_ATTEMPTS; attempt += 1) {
-    if (attempt > 0) {
-      await new Promise((resolve) => setTimeout(resolve, PAYMENT_POLL_DELAY_MS));
-    }
-
-    const result = await requestPaymentApi("stkQuery", { checkoutRequestId });
-    if (!result.ok) {
-      return { status: "failed" as const, message: result.error };
-    }
-    if (result.status !== "pending") {
-      return result;
-    }
+    if (attempt) await new Promise((resolve) => setTimeout(resolve, PAYMENT_POLL_DELAY_MS));
+    const result = await requestPayment("stkQuery", { checkoutRequestId });
+    if (result.ok !== true)
+      return { status: "failed" as const, message: String(result.error ?? "Payment failed.") };
+    if (result.status !== "pending")
+      return result as { status: "success" | "failed"; message: string };
   }
-
   return {
     status: "pending" as const,
     message: "Prompt sent, but confirmation is taking longer than expected.",
   };
 }
 
-function paymentErrorMessage(error: unknown) {
-  if (!(error instanceof Error) || !error.message) {
-    return "We couldn't start the M-Pesa payment. Please try again.";
-  }
-
-  if (
-    error.message.includes("Unexpected end of JSON input") ||
-    error.message.includes("empty response") ||
-    error.message.includes("invalid response")
-  ) {
-    return "M-Pesa returned an empty or invalid response. Please check the Daraja setup and try again.";
-  }
-
-  if (error.message.includes("Seroval Error")) {
-    return "The payment service could not process that request. Please try again.";
-  }
-
-  return error.message;
-}
-
-async function requestPaymentApi(
-  action: "stkPush",
-  data: { phone: string; amount: number; reference: string; description: string },
-): Promise<Awaited<ReturnType<typeof import("@/lib/mpesa.functions").performStkPush>>>;
-async function requestPaymentApi(
-  action: "stkQuery",
-  data: { checkoutRequestId: string },
-): Promise<Awaited<ReturnType<typeof import("@/lib/mpesa.functions").performStkQuery>>>;
-async function requestPaymentApi(action: "stkPush" | "stkQuery", data: unknown) {
-  const response = await fetch("/api/public/mpesa", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action, data }),
-  });
-  const text = await response.text();
-
-  if (!text.trim()) {
-    throw new Error("Payment service returned an empty response.");
-  }
-
-  let body: { ok?: boolean; error?: string };
-  try {
-    body = JSON.parse(text) as { ok?: boolean; error?: string };
-  } catch {
-    throw new Error("Payment service returned an invalid response.");
-  }
-
-  if (!response.ok) {
-    throw new Error(body.error ?? "Payment service rejected the request.");
-  }
-
-  return body;
-}
-
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Bingwa Sokoni — Data, SMS & Minutes Offers" },
-      {
-        name: "description",
-        content:
-          "Buy Bingwa Sokoni data, SMS, minutes and Tunukiwa offers instantly. Offline till payments are supported.",
-      },
-      { property: "og:title", content: "Bingwa Sokoni — Data, SMS & Minutes Offers" },
+      { title: "Bingwa Sokoni — Buy Data, SMS & Minutes" },
+      { name: "description", content: "Buy Bingwa Sokoni data, SMS, minutes and Tunukiwa offers." },
+      { property: "og:title", content: "Bingwa Sokoni — Buy Data, SMS & Minutes" },
       {
         property: "og:description",
-        content:
-          "Automated Bingwa Sokoni offers: data from Ksh.19, SMS from Ksh.5 and minutes from Ksh.22.",
+        content: "Buy data, SMS, minutes and Tunukiwa offers instantly.",
       },
     ],
   }),
-  component: BingwaApp,
+  component: Storefront,
 });
 
-function BingwaApp() {
-  const [unlocked, setUnlocked] = useState(false);
-  const [pin, setPin] = useState("");
-  const [active, setActive] = useState(false);
-  const [balance, setBalance] = useState(START_BALANCE);
-  const [salesCount, setSalesCount] = useState(0);
-  const [revenue, setRevenue] = useState(0);
-  const [showFloat, setShowFloat] = useState(false);
-  const [floatAmount, setFloatAmount] = useState("");
-  const [floatPhone, setFloatPhone] = useState("");
+function Storefront() {
+  const [offer, setOffer] = useState<Offer | null>(null);
+  const [mode, setMode] = useState<"mine" | "other">("mine");
+  const [paymentPhone, setPaymentPhone] = useState("");
+  const [receivingPhone, setReceivingPhone] = useState("");
   const [busy, setBusy] = useState(false);
-  const [sellOffer, setSellOffer] = useState<Offer | null>(null);
-  const [customer, setCustomer] = useState("");
-  const [method, setMethod] = useState<"airtime" | "mpesa">("mpesa");
-  const [showActivation, setShowActivation] = useState(false);
-  const [deadline, setDeadline] = useState<number | null>(null);
-  const [left, setLeft] = useState("60:00");
-  const [stateHydrated, setStateHydrated] = useState(false);
-  const [pendingActivation, setPendingActivation] = useState<string | null>(null);
-  const [verifying, setVerifying] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
-  const applyActivation = (message?: string) => {
-    setActive(true);
-    setPendingActivation(null);
-    setShowActivation(false);
-    setBalance((current) => current + ACTIVATION_FEE);
-    toast.success(
-      message ?? `Payment confirmed. KES ${ACTIVATION_FEE.toLocaleString()} added to your float.`,
-    );
-  };
-
-  const verifyActivation = async (checkoutRequestId: string, silent = false) => {
-    setVerifying(true);
-    try {
-      const payment = await waitForPayment(checkoutRequestId);
-      if (payment.status === "success") {
-        applyActivation();
-        return;
-      }
-      if (payment.status === "failed") {
-        setPendingActivation(null);
-        if (!silent) toast.error(payment.message);
-        return;
-      }
-      if (!silent) toast.info(payment.message);
-    } catch (error) {
-      if (!silent) toast.error(paymentErrorMessage(error));
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-
   useEffect(() => {
-    const handleBeforeInstallPrompt = (event: Event) => {
+    const onInstall = (event: Event) => {
       event.preventDefault();
       setInstallPrompt(event as BeforeInstallPromptEvent);
     };
-    const handleAppInstalled = () => setInstallPrompt(null);
-
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-    window.addEventListener("appinstalled", handleAppInstalled);
-
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch((error: unknown) => {
-        console.warn("Bingwa Sokoni offline support could not start.", error);
-      });
-    }
-
+    const onInstalled = () => setInstallPrompt(null);
+    window.addEventListener("beforeinstallprompt", onInstall);
+    window.addEventListener("appinstalled", onInstalled);
+    if ("serviceWorker" in navigator)
+      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
     return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-      window.removeEventListener("appinstalled", handleAppInstalled);
+      window.removeEventListener("beforeinstallprompt", onInstall);
+      window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
 
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(DASHBOARD_STATE_KEY);
-      if (stored) {
-        const saved = JSON.parse(stored) as Partial<DashboardState>;
-        if (typeof saved.active === "boolean") setActive(saved.active);
-        if (typeof saved.balance === "number") setBalance(saved.balance);
-        if (typeof saved.salesCount === "number") setSalesCount(saved.salesCount);
-        if (typeof saved.revenue === "number") setRevenue(saved.revenue);
-        if (typeof saved.deadline === "number" || saved.deadline === null) {
-          setDeadline(saved.deadline);
-        }
-        if (typeof saved.pendingActivation === "string") {
-          setPendingActivation(saved.pendingActivation);
-        }
-      }
-    } catch {
-      window.localStorage.removeItem(DASHBOARD_STATE_KEY);
-    } finally {
-      setStateHydrated(true);
+  function openOffer(nextOffer: Offer) {
+    setOffer(nextOffer);
+    setMode("mine");
+    setPaymentPhone("");
+    setReceivingPhone("");
+  }
+
+  async function buy() {
+    if (!offer) return;
+    const payer = paymentPhone.replace(/\D/g, "");
+    const recipient = (mode === "mine" ? paymentPhone : receivingPhone).replace(/\D/g, "");
+    if (payer.length < 9 || recipient.length < 9) {
+      toast.error(
+        mode === "mine" ? "Enter your M-Pesa number." : "Enter both payment and receiving numbers.",
+      );
+      return;
     }
-  }, []);
-
-  useEffect(() => {
-    if (!stateHydrated) return;
-    const state: DashboardState = {
-      active,
-      balance,
-      salesCount,
-      revenue,
-      deadline,
-      pendingActivation,
-    };
-    window.localStorage.setItem(DASHBOARD_STATE_KEY, JSON.stringify(state));
-  }, [active, balance, salesCount, revenue, deadline, pendingActivation, stateHydrated]);
-
-  useEffect(() => {
-    if (!stateHydrated || active || !pendingActivation) return;
-    void verifyActivation(pendingActivation, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stateHydrated, active, pendingActivation]);
-
-
-  useEffect(() => {
-    if (!deadline) return;
-    const tick = () => {
-      const ms = Math.max(0, deadline - Date.now());
-      const m = Math.floor(ms / 60000);
-      const s = Math.floor((ms % 60000) / 1000);
-      setLeft(`${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
-    };
-    tick();
-    const t = setInterval(tick, 1000);
-    return () => clearInterval(t);
-  }, [deadline]);
-
-  if (!unlocked) {
-    return (
-      <main className="flex min-h-screen items-center justify-center px-5">
-        <Toaster />
-        <div className="surface-card w-full max-w-sm rounded-3xl p-7 text-center">
-          <div className="gradient-primary shadow-elevated mx-auto flex size-16 items-center justify-center rounded-2xl text-2xl font-bold text-primary-foreground">
-            BS
-          </div>
-          <h1 className="mt-5 text-2xl font-bold">Bingwa Sokoni</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Enter your dealer PIN to open the dashboard
-          </p>
-          <form
-            className="mt-6 space-y-4 text-left"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (pin === DEFAULT_PIN) {
-                setUnlocked(true);
-                toast.success("Welcome back, dealer");
-              } else {
-                toast.error("Wrong PIN. Try again.");
-                setPin("");
-              }
-            }}
-          >
-            <div className="space-y-2">
-              <Label htmlFor="pin">Dealer PIN</Label>
-              <Input
-                id="pin"
-                inputMode="numeric"
-                maxLength={4}
-                value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-                placeholder="••••"
-                className="h-12 text-center text-xl tracking-[0.6em]"
-              />
-            </div>
-            <Button type="submit" size="lg" className="w-full">
-              Unlock dashboard
-            </Button>
-          </form>
-          <p className="mt-5 text-xs text-muted-foreground">
-            Offline till {OFFLINE_TILL_NUMBER} · {TILL_NAME}
-          </p>
-        </div>
-      </main>
-    );
+    setBusy(true);
+    try {
+      const prompt = (await requestPayment("stkPush", {
+        phone: paymentPhone,
+        amount: offer.price,
+        reference: offer.service,
+        description: `${offer.title} ${offer.validity}`,
+      })) as PaymentResult;
+      if (!prompt.ok) throw new Error(prompt.error);
+      const payment = await waitForPayment(prompt.checkoutRequestId);
+      if (payment.status === "failed") throw new Error(payment.message);
+      if (payment.status === "pending") {
+        toast.info(payment.message);
+        return;
+      }
+      const saved = await fetch("/api/public/sales", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          offerId: offer.id,
+          paymentPhone: payer,
+          receivingPhone: recipient,
+          paymentMode: "mpesa",
+        }),
+      });
+      const savedBody = (await saved.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!saved.ok || !savedBody.ok)
+        throw new Error(savedBody.error ?? "Could not save the purchase.");
+      toast.success(`${offer.title} is being sent to ${recipient}.`);
+      setOffer(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not complete the purchase.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-md px-4 pb-16">
       <Toaster />
       <header className="pt-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary">
-          Automated offers
-        </p>
-        <h1 className="mt-2 text-3xl font-bold">Bingwa Sokoni</h1>
-        <div className="mt-1 flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            Offline till {OFFLINE_TILL_NUMBER} · {TILL_NAME}
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary">
+              Bingwa Sokoni
+            </p>
+            <h1 className="mt-2 text-3xl font-bold">Buy bundles quickly</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Choose an offer, pay with M-Pesa, and send it to your number or someone else.
+            </p>
+          </div>
           {installPrompt ? (
             <Button
               variant="outline"
@@ -345,78 +169,20 @@ function BingwaApp() {
                 setInstallPrompt(null);
               }}
             >
-              Install app
+              Install
             </Button>
           ) : null}
         </div>
       </header>
 
-      <section className="surface-card shadow-elevated mt-6 overflow-hidden rounded-3xl">
-        <div className="flex flex-col gap-5 p-5 pb-5 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:p-6">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Float balance
-            </p>
-            <p className="mt-1 font-display text-4xl font-bold">KES {balance.toLocaleString()}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Badge variant={active ? "default" : "secondary"}>
-                {active ? "Account active" : "Not activated"}
-              </Badge>
-              {deadline && !active ? (
-                <span className="text-xs text-accent">Activate within {left}</span>
-              ) : null}
-            </div>
-          </div>
-          <div className="grid w-full shrink-0 gap-2 sm:w-[9.5rem]">
-            <Button
-              size="sm"
-              className="w-full"
-              disabled={active}
-              onClick={() => {
-                setDeadline(Date.now() + 60 * 60 * 1000);
-                setShowActivation(true);
-              }}
-            >
-              {active ? "Activated" : "Activate app"}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                setFloatAmount("");
-                setShowFloat(true);
-              }}
-            >
-              Add float
-            </Button>
-          </div>
-        </div>
-        <div className="grid grid-cols-3 divide-x divide-border border-t border-border bg-background/30 text-center">
-          <div className="p-3">
-            <p className="text-sm font-semibold">{salesCount}</p>
-            <p className="text-[11px] text-muted-foreground">Sales today</p>
-          </div>
-          <div className="p-3">
-            <p className="text-sm font-semibold">KES {revenue.toLocaleString()}</p>
-            <p className="text-[11px] text-muted-foreground">Revenue</p>
-          </div>
-          <div className="p-3">
-            <p className="text-sm font-semibold">{OFFLINE_TILL_NUMBER}</p>
-            <p className="text-[11px] text-muted-foreground">Offline till</p>
-          </div>
-        </div>
-      </section>
-
-      <p className="mt-6 rounded-2xl border border-border bg-card/60 p-4 text-xs leading-relaxed text-muted-foreground">
-        <strong className="text-foreground">Please note:</strong> 1GB hourly data (Ksh.23 &amp;
-        Ksh.19) is only available daily from 11:00pm to 4:00pm. If you buy 1GB after 4pm you will
-        get 250MB + free WhatsApp.
-      </p>
+      <div className="mt-6 rounded-2xl border border-border bg-card/60 p-4 text-sm text-muted-foreground">
+        <Badge>Secure prompt</Badge>
+        <p className="mt-2">Your payment is verified before the bundle is recorded for delivery.</p>
+      </div>
 
       {OFFER_GROUPS.map((group) => (
         <section key={group.id} className="mt-8">
-          <div className="flex items-baseline justify-between">
+          <div className="flex items-baseline justify-between gap-3">
             <h2 className="text-lg font-bold">
               <span className="mr-2">{group.icon}</span>
               {group.name}
@@ -424,31 +190,22 @@ function BingwaApp() {
             <span className="text-[11px] text-muted-foreground">{group.tagline}</span>
           </div>
           <div className="mt-3 space-y-3">
-            {group.offers.map((offer) => (
+            {group.offers.map((item) => (
               <article
-                key={offer.id}
+                key={item.id}
                 className="surface-card flex items-center gap-4 rounded-2xl p-4"
               >
                 <div className="gradient-primary flex size-14 shrink-0 flex-col items-center justify-center rounded-xl text-primary-foreground">
                   <span className="text-[10px] font-semibold opacity-80">KSH</span>
-                  <span className="text-base font-bold leading-none">{offer.price}</span>
+                  <span className="text-base font-bold leading-none">{item.price}</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">{offer.title}</p>
-                  <p className="text-xs text-muted-foreground">{offer.validity}</p>
-                  {offer.note ? (
-                    <p className="mt-0.5 text-[11px] text-accent">{offer.note}</p>
-                  ) : null}
+                  <p className="truncate font-semibold">{item.title}</p>
+                  <p className="text-xs text-muted-foreground">{item.validity}</p>
+                  {item.note ? <p className="mt-0.5 text-[11px] text-accent">{item.note}</p> : null}
                 </div>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setSellOffer(offer);
-                    setCustomer("");
-                    setMethod("mpesa");
-                  }}
-                >
-                  Sell
+                <Button size="sm" onClick={() => openOffer(item)}>
+                  Buy
                 </Button>
               </article>
             ))}
@@ -457,293 +214,74 @@ function BingwaApp() {
       ))}
 
       <footer className="mt-10 text-center text-xs text-muted-foreground">
-        Till name <strong className="text-foreground">{TILL_NAME}</strong> · Till number{" "}
-        <strong className="text-foreground">{OFFLINE_TILL_NUMBER}</strong>
+        Need dealer access?{" "}
+        <a className="text-primary underline" href="/admin">
+          Open admin
+        </a>
       </footer>
 
-      <Dialog open={!!sellOffer} onOpenChange={(o) => !o && setSellOffer(null)}>
+      <Dialog open={!!offer} onOpenChange={(open) => !open && setOffer(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              Sell {sellOffer?.title} · Ksh.{sellOffer?.price}
+              Buy {offer?.title} · KES {offer?.price}
             </DialogTitle>
-            <DialogDescription>{sellOffer?.validity}</DialogDescription>
+            <DialogDescription>{offer?.validity} · M-Pesa prompt</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="customer">Customer number</Label>
-              <Input
-                id="customer"
-                inputMode="tel"
-                placeholder="07XX XXX XXX"
-                value={customer}
-                onChange={(e) => setCustomer(e.target.value.replace(/[^\d+]/g, ""))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Pay with</Label>
-              <div className="grid grid-cols-2 gap-3">
-                {(["airtime", "mpesa"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMethod(m)}
-                    className={`rounded-xl border p-3 text-sm font-medium capitalize transition-colors ${
-                      method === m
-                        ? "border-primary bg-primary/15 text-primary"
-                        : "border-border bg-card text-muted-foreground"
-                    }`}
-                  >
-                    {m === "mpesa" ? "M-Pesa prompt" : "Airtime / float"}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              className="w-full"
-              disabled={busy}
-              onClick={async () => {
-                if (customer.replace(/\D/g, "").length < 9) {
-                  toast.error("Enter a valid customer number");
-                  return;
-                }
-                if (!active) {
-                  setSellOffer(null);
-                  setDeadline(Date.now() + 60 * 60 * 1000);
-                  setShowActivation(true);
-                  toast.error("Your app is not active");
-                  return;
-                }
-                const offer = sellOffer!;
-                if (method === "airtime" && balance < offer.price) {
-                  toast.error("Not enough float. Add float to continue.");
-                  return;
-                }
-                setBusy(true);
-                try {
-                  if (method === "mpesa") {
-                    const res = await requestPaymentApi("stkPush", {
-                      phone: customer,
-                      amount: offer.price,
-                      reference: offer.service,
-                      description: `${offer.title} ${offer.validity}`,
-                    });
-                    if (!res.ok) {
-                      toast.error(res.error);
-                      return;
-                    }
-                    const payment = await waitForPayment(res.checkoutRequestId);
-                    if (payment.status === "failed") {
-                      toast.error(payment.message);
-                      return;
-                    }
-                    if (payment.status === "pending") {
-                      toast.info(payment.message);
-                      return;
-                    }
-                    toast.success(`Payment confirmed. ${offer.title} is ready for ${customer}`);
-                  } else {
-                    setBalance((b) => b - offer.price);
-                    toast.success(`${offer.title} sent to ${customer} from float`);
-                  }
-                  setSalesCount((n) => n + 1);
-                  setRevenue((r) => r + offer.price);
-                  setSellOffer(null);
-                } catch (error) {
-                  toast.error(paymentErrorMessage(error));
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {busy ? "Processing…" : "Confirm sale"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showFloat} onOpenChange={setShowFloat}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Add float</DialogTitle>
-            <DialogDescription>
-              We'll send an M-Pesa prompt to your phone. Your payment will be verified
-              automatically.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="float-phone">Your M-Pesa number</Label>
-              <Input
-                id="float-phone"
-                inputMode="tel"
-                placeholder="07XX XXX XXX"
-                value={floatPhone}
-                onChange={(e) => setFloatPhone(e.target.value.replace(/[^\d+]/g, ""))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="float-amount">Amount (KES)</Label>
-              <Input
-                id="float-amount"
-                inputMode="numeric"
-                placeholder="1000"
-                value={floatAmount}
-                onChange={(e) => setFloatAmount(e.target.value.replace(/\D/g, ""))}
-              />
-            </div>
-            <div className="flex gap-2">
-              {[500, 1000, 5000].map((a) => (
-                <Button
-                  key={a}
-                  variant="secondary"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => setFloatAmount(String(a))}
+            <div className="grid grid-cols-2 gap-3">
+              {(["mine", "other"] as const).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setMode(item)}
+                  className={`rounded-xl border p-3 text-sm font-medium transition-colors ${
+                    mode === item
+                      ? "border-primary bg-primary/15 text-primary"
+                      : "border-border bg-card text-muted-foreground"
+                  }`}
                 >
-                  {a.toLocaleString()}
-                </Button>
+                  {item === "mine" ? "My number" : "Other number"}
+                </button>
               ))}
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="payment-number">
+                {mode === "mine" ? "Your M-Pesa number" : "Payment number"}
+              </Label>
+              <Input
+                id="payment-number"
+                inputMode="tel"
+                placeholder="07XX XXX XXX"
+                value={paymentPhone}
+                onChange={(e) => setPaymentPhone(e.target.value.replace(/[^\d+]/g, ""))}
+              />
+            </div>
+            {mode === "other" ? (
+              <div className="space-y-2">
+                <Label htmlFor="receiving-number">Receiving number</Label>
+                <Input
+                  id="receiving-number"
+                  inputMode="tel"
+                  placeholder="07XX XXX XXX"
+                  value={receivingPhone}
+                  onChange={(e) => setReceivingPhone(e.target.value.replace(/[^\d+]/g, ""))}
+                />
+              </div>
+            ) : null}
           </div>
           <DialogFooter>
-            <Button
-              className="w-full"
-              size="lg"
-              disabled={busy}
-              onClick={async () => {
-                const amount = Number(floatAmount);
-                if (floatPhone.replace(/\D/g, "").length < 9 || !amount) {
-                  toast.error("Enter your number and an amount");
-                  return;
-                }
-                setBusy(true);
-                try {
-                  const res = await requestPaymentApi("stkPush", {
-                    phone: floatPhone,
-                    amount,
-                    reference: "float",
-                    description: "Float top-up",
-                  });
-                  if (!res.ok) {
-                    toast.error(res.error);
-                    return;
-                  }
-                  const payment = await waitForPayment(res.checkoutRequestId);
-                  if (payment.status === "failed") {
-                    toast.error(payment.message);
-                    return;
-                  }
-                  if (payment.status === "pending") {
-                    toast.info(payment.message);
-                    return;
-                  }
-                  setBalance((balance) => balance + amount);
-                  setShowFloat(false);
-                  toast.success(`KES ${amount.toLocaleString()} added to your float`);
-                } catch (error) {
-                  toast.error(paymentErrorMessage(error));
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {busy ? "Sending prompt…" : "Send M-Pesa prompt"}
+            <Button className="w-full" size="lg" disabled={busy} onClick={buy}>
+              {busy ? "Processing…" : `Buy now · KES ${offer?.price ?? ""}`}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showActivation} onOpenChange={setShowActivation}>
-        <DialogContent className="max-w-sm text-center">
-          <DialogHeader>
-            <DialogTitle>Your app is not active</DialogTitle>
-            <DialogDescription>
-              Activate your dealer account with a one-off fee of Ksh.{ACTIVATION_FEE}. Activation
-              must be completed within 1 hour or your float will be reversed.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="surface-card rounded-2xl p-4">
-            <p className="text-xs text-muted-foreground">Time remaining</p>
-            <p className="font-display text-3xl font-bold text-accent">{left}</p>
-          </div>
-          <div className="space-y-2 text-left">
-            <Label htmlFor="act-phone">Your M-Pesa number</Label>
-            <Input
-              id="act-phone"
-              inputMode="tel"
-              placeholder="07XX XXX XXX"
-              value={floatPhone}
-              onChange={(e) => setFloatPhone(e.target.value.replace(/[^\d+]/g, ""))}
-            />
-          </div>
-          <DialogFooter className="flex-col gap-2 sm:flex-col">
-            <Button
-              className="w-full"
-              size="lg"
-              disabled={busy || verifying}
-              onClick={async () => {
-                if (floatPhone.replace(/\D/g, "").length < 9) {
-                  toast.error("Enter your M-Pesa number");
-                  return;
-                }
-                setBusy(true);
-                try {
-                  const res = await requestPaymentApi("stkPush", {
-                    phone: floatPhone,
-                    amount: ACTIVATION_FEE,
-                    reference: "activation",
-                    description: "App activation",
-                  });
-                  if (!res.ok) {
-                    toast.error(res.error);
-                    return;
-                  }
-                  if (res.checkoutRequestId) setPendingActivation(res.checkoutRequestId);
-                  const payment = await waitForPayment(res.checkoutRequestId);
-                  if (payment.status === "failed") {
-                    setPendingActivation(null);
-                    toast.error(payment.message);
-                    return;
-                  }
-                  if (payment.status === "pending") {
-                    toast.info(`${payment.message} Tap "I've already paid" to re-check.`);
-                    return;
-                  }
-                  applyActivation();
-                } catch (error) {
-                  toast.error(paymentErrorMessage(error));
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {busy ? "Sending prompt…" : `Activate now · Ksh.${ACTIVATION_FEE}`}
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              size="lg"
-              disabled={busy || verifying}
-              onClick={async () => {
-                if (!pendingActivation) {
-                  toast.info("Send the activation prompt first, then confirm on your phone.");
-                  return;
-                }
-                await verifyActivation(pendingActivation);
-              }}
-            >
-              {verifying ? "Checking payment…" : "I've already paid · Verify"}
-            </Button>
-          </DialogFooter>
-
-          <p className="text-[11px] text-muted-foreground">
-            Your activation payment will be verified automatically · {TILL_NAME}
-          </p>
         </DialogContent>
       </Dialog>
     </main>
   );
 }
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
