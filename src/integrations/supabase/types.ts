@@ -14,7 +14,144 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          admin_pin: string
+          commission_per_ten: number
+          float_balance: number
+          gateway_enabled: boolean
+          id: number
+          paybill_number: string
+          till_number: string
+          updated_at: string
+          withdraw_threshold: number
+        }
+        Insert: {
+          admin_pin?: string
+          commission_per_ten?: number
+          float_balance?: number
+          gateway_enabled?: boolean
+          id?: number
+          paybill_number?: string
+          till_number?: string
+          updated_at?: string
+          withdraw_threshold?: number
+        }
+        Update: {
+          admin_pin?: string
+          commission_per_ten?: number
+          float_balance?: number
+          gateway_enabled?: boolean
+          id?: number
+          paybill_number?: string
+          till_number?: string
+          updated_at?: string
+          withdraw_threshold?: number
+        }
+        Relationships: []
+      }
+      customers: {
+        Row: {
+          created_at: string
+          id: string
+          last_seen_at: string
+          phone: string
+          purchases: number
+          total_spent: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          phone: string
+          purchases?: number
+          total_spent?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          phone?: string
+          purchases?: number
+          total_spent?: number
+        }
+        Relationships: []
+      }
+      sales: {
+        Row: {
+          checkout_request_id: string | null
+          commission: number
+          created_at: string
+          destination: string
+          for_self: boolean
+          gateway_enabled: boolean
+          id: string
+          offer_id: string
+          offer_title: string
+          payment_phone: string
+          price: number
+          receiving_phone: string
+          service: string
+          status: string
+        }
+        Insert: {
+          checkout_request_id?: string | null
+          commission?: number
+          created_at?: string
+          destination: string
+          for_self?: boolean
+          gateway_enabled?: boolean
+          id?: string
+          offer_id: string
+          offer_title: string
+          payment_phone: string
+          price: number
+          receiving_phone: string
+          service: string
+          status?: string
+        }
+        Update: {
+          checkout_request_id?: string | null
+          commission?: number
+          created_at?: string
+          destination?: string
+          for_self?: boolean
+          gateway_enabled?: boolean
+          id?: string
+          offer_id?: string
+          offer_title?: string
+          payment_phone?: string
+          price?: number
+          receiving_phone?: string
+          service?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      withdrawals: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          phone: string | null
+          status: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          phone?: string | null
+          status?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          phone?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
