@@ -6,6 +6,8 @@ export const stkSchema = z.object({
   amount: z.number().int().positive(),
   reference: z.string().min(1).max(20),
   description: z.string().min(1).max(60),
+  // When set, collection is routed to this till/store instead of the default paybill.
+  till: z.string().min(4).max(12).optional(),
 });
 
 export const querySchema = z.object({
