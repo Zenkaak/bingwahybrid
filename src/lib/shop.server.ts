@@ -198,7 +198,16 @@ export async function adminUpdateSettings(
   },
 ) {
   await requirePin(pin);
-  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const update: Partial<{
+    till_number: string;
+    paybill_number: string;
+    gateway_enabled: boolean;
+    float_balance: number;
+    activated: boolean;
+    activated_at: string | null;
+    admin_pin: string;
+    updated_at: string;
+  }> = { updated_at: new Date().toISOString() };
   if (patch.tillNumber) update["till_number"] = patch.tillNumber;
   if (patch.paybillNumber) update["paybill_number"] = patch.paybillNumber;
   if (typeof patch.gatewayEnabled === "boolean") update["gateway_enabled"] = patch.gatewayEnabled;

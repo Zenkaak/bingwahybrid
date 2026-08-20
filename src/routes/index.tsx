@@ -31,7 +31,7 @@ async function requestPayment(
     body: JSON.stringify({ action, data }),
   });
   const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!response.ok) throw new Error(String(body.error ?? "Payment service rejected the request."));
+  if (!response.ok) throw new Error(String(body["error"] ?? "Payment service rejected the request."));
   return body;
 }
 
@@ -41,9 +41,9 @@ async function waitForPayment(checkoutRequestId: string | null) {
   for (let attempt = 0; attempt < PAYMENT_POLL_ATTEMPTS; attempt += 1) {
     if (attempt) await new Promise((resolve) => setTimeout(resolve, PAYMENT_POLL_DELAY_MS));
     const result = await requestPayment("stkQuery", { checkoutRequestId });
-    if (result.ok !== true)
-      return { status: "failed" as const, message: String(result.error ?? "Payment failed.") };
-    if (result.status !== "pending")
+    if (result["ok"] !== true)
+      return { status: "failed" as const, message: String(result["error"] ?? "Payment failed.") };
+    if (result["status"] !== "pending")
       return result as { status: "success" | "failed"; message: string };
   }
   return {
