@@ -6,7 +6,7 @@ export const Route = createFileRoute("/api/admin/auth")({
     handlers: {
       POST: async ({ request }) => {
         const body = (await request.json().catch(() => ({}))) as { pin?: unknown };
-        if (typeof body.pin !== "string" || !isCorrectPin(body.pin)) {
+        if (typeof body.pin !== "string" || !(await isCorrectPin(body.pin))) {
           return Response.json({ ok: false, error: "Wrong PIN." }, { status: 401 });
         }
         return Response.json(
