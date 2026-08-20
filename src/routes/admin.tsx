@@ -15,7 +15,7 @@ type Dashboard = {
   withdrawableCommissions: number;
   pendingCommissions: number;
   sales: Array<{
-    id: number;
+    id: string;
     offerTitle: string;
     amount: number;
     paymentPhone: string;
@@ -44,6 +44,7 @@ async function jsonRequest(url: string, init?: RequestInit) {
     ok?: boolean;
     error?: string;
     data?: unknown;
+    authenticated?: boolean;
   };
   if (!response.ok) throw new Error(body.error ?? "Request failed.");
   return body;
