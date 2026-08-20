@@ -27,6 +27,7 @@ type Dashboard = {
 };
 
 type Settings = { enabled: boolean; till: string };
+const ADMIN_TOKEN_KEY = "bingwa_admin_token";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -39,13 +40,24 @@ export const Route = createFileRoute("/admin")({
 });
 
 async function jsonRequest(url: string, init?: RequestInit) {
-  const response = await fetch(url, init);
+  const headers = new Headers(init?.headers);
+  if (!headers.has("authorization")) {
+    const token =
+      typeof window === "undefined" ? null : window.localStorage.getItem(ADMIN_TOKEN_KEY);
+    if (token) headers.set("authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(url, { ...init, headers });
   const body = (await response.json().catch(() => ({}))) as {
     ok?: boolean;
+    token?: string;
     error?: string;
     data?: unknown;
     authenticated?: boolean;
   };
+  if (response.status === 401 && typeof window !== "undefined") {
+    window.localStorage.removeItem(ADMIN_TOKEN_KEY);
+  }
   if (!response.ok) throw new Error(body.error ?? "Request failed.");
   return body;
 }
@@ -85,11 +97,15 @@ function AdminPage() {
     event.preventDefault();
     setSaving(true);
     try {
-      await jsonRequest("/api/admin/auth", {
+      const response = await jsonRequest("/api/admin/auth", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ pin }),
       });
+      if (typeof response.token !== "string" || !response.token) {
+        throw new Error("Login did not return a valid session.");
+      }
+      window.localStorage.setItem(ADMIN_TOKEN_KEY, response.token);
       setPin("");
       await load();
       toast.success("Admin dashboard unlocked.");
@@ -177,8 +193,12 @@ function AdminPage() {
           <Button
             variant="ghost"
             onClick={async () => {
-              await fetch("/api/admin/auth", { method: "DELETE" });
-              window.location.href = "/";
+              try {
+                await jsonRequest("/api/admin/auth", { method: "DELETE" });
+              } finally {
+                window.localStorage.removeItem(ADMIN_TOKEN_KEY);
+                window.location.href = "/";
+              }
             }}
           >
             Log out

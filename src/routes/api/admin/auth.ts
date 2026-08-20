@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createAdminCookie, isCorrectPin, adminLogoutCookie } from "@/lib/admin-auth";
+import {
+  createAdminCookie,
+  createAdminToken,
+  isCorrectPin,
+  adminLogoutCookie,
+} from "@/lib/admin-auth";
 
 export const Route = createFileRoute("/api/admin/auth")({
   server: {
@@ -9,8 +14,9 @@ export const Route = createFileRoute("/api/admin/auth")({
         if (typeof body.pin !== "string" || !(await isCorrectPin(body.pin))) {
           return Response.json({ ok: false, error: "Wrong PIN." }, { status: 401 });
         }
+        const token = await createAdminToken();
         return Response.json(
-          { ok: true },
+          { ok: true, token },
           { headers: { "Set-Cookie": await createAdminCookie() } },
         );
       },

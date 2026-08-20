@@ -2,6 +2,7 @@ import { getAdminPin } from "@/lib/store-db";
 
 const COOKIE_NAME = "bingwa_admin";
 const FALLBACK_PIN = "9898";
+const TOKEN_PAYLOAD = "admin";
 
 function secret() {
   return process.env["SESSION_SECRET"]?.trim() || process.env["ADMIN_PIN"]?.trim() || FALLBACK_PIN;
@@ -39,14 +40,25 @@ export async function isCorrectPin(pin: string) {
 }
 
 export async function createAdminCookie() {
-  const token = await sign("admin");
+  const token = await createAdminToken();
   // SameSite=None + Partitioned so the session survives the embedded preview iframe.
   return `${COOKIE_NAME}=${token}; HttpOnly; SameSite=None; Path=/; Max-Age=28800; Secure; Partitioned`;
 }
 
+export async function createAdminToken() {
+  return sign(TOKEN_PAYLOAD);
+}
+
+async function isValidAdminToken(token: string | undefined) {
+  return !!token && token === (await createAdminToken());
+}
+
 export async function isAdminRequest(request: Request) {
-  const token = readCookie(request);
-  return token === (await sign("admin"));
+  const authorization = request.headers.get("authorization") ?? "";
+  const bearerToken = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (await isValidAdminToken(bearerToken)) return true;
+
+  return isValidAdminToken(readCookie(request));
 }
 
 export const adminLogoutCookie = `${COOKIE_NAME}=; HttpOnly; SameSite=None; Path=/; Max-Age=0; Secure; Partitioned`;
