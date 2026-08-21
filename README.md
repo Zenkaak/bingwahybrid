@@ -62,6 +62,15 @@ Till name _MARTHA WAMBUI_
 
 The public catalog is available at `/`. Dealer reporting is protected at `/admin` with the existing PIN `9898`; it keeps float, sales, commissions, customers, and gateway settings out of shared product links.
 
+## Vercel server configuration
+
+The private admin dashboard requires these production-only Supabase variables:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY` (or the newer `SUPABASE_SECRET_KEY`)
+
+The `app_settings` table must contain its initial row with `id = 1`; this row stores the admin PIN, gateway toggle, till number, float balance, and commission settings. Never expose the service/secret key as a `VITE_*` variable.
+
 ## Daraja configuration
 
 The payment prompts run server-side and do not require Supabase. Configure these variables in the
