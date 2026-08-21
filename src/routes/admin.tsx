@@ -65,7 +65,11 @@ async function jsonRequest(url: string, init?: RequestInit) {
   if (response.status === 401 && typeof window !== "undefined") {
     window.localStorage.removeItem(ADMIN_TOKEN_KEY);
   }
-  if (!response.ok) throw new Error(body.error ?? "Request failed.");
+  if (!response.ok) {
+    const error = new Error(body.error ?? "Request failed.");
+    Object.assign(error, { status: response.status });
+    throw error;
+  }
   return body;
 }
 
