@@ -7,7 +7,14 @@ export const Route = createFileRoute("/api/admin/settings")({
     handlers: {
       GET: async ({ request }) => {
         if (!(await isAdminRequest(request))) return Response.json({ ok: false }, { status: 401 });
-        return Response.json({ ok: true, data: await getGatewaySettings() });
+        try {
+          return Response.json({ ok: true, data: await getGatewaySettings() });
+        } catch (error) {
+          return Response.json(
+            { ok: false, error: error instanceof Error ? error.message : "Could not load gateway settings." },
+            { status: 500 },
+          );
+        }
       },
       PUT: async ({ request }) => {
         if (!(await isAdminRequest(request))) return Response.json({ ok: false }, { status: 401 });
@@ -19,10 +26,17 @@ export const Route = createFileRoute("/api/admin/settings")({
         if (!/^\d{5,10}$/.test(till)) {
           return Response.json({ ok: false, error: "Enter a valid till number." }, { status: 400 });
         }
-        return Response.json({
-          ok: true,
-          data: await updateGatewaySettings({ enabled: body.enabled === true, till }),
-        });
+        try {
+          return Response.json({
+            ok: true,
+            data: await updateGatewaySettings({ enabled: body.enabled === true, till }),
+          });
+        } catch (error) {
+          return Response.json(
+            { ok: false, error: error instanceof Error ? error.message : "Could not save gateway settings." },
+            { status: 500 },
+          );
+        }
       },
     },
   },
