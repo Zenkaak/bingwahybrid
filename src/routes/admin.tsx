@@ -76,6 +76,7 @@ function AdminPage() {
   const [settings, setSettings] = useState<Settings>({ enabled: false, till: "3367738" });
   const [saving, setSaving] = useState(false);
   const [floatAmount, setFloatAmount] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   async function loadDashboard() {
     const [dashboardResult, settingsResult] = await Promise.allSettled([
@@ -94,16 +95,24 @@ function AdminPage() {
   }
 
   async function load() {
+    setLoadError(null);
     try {
       const me = await jsonRequest("/api/admin/me");
       if (!me.authenticated) {
         setAuthenticated(false);
+        setDashboard(null);
         return;
       }
       setAuthenticated(true);
       await loadDashboard();
-    } catch {
-      setAuthenticated(false);
+    } catch (error) {
+      const status = error instanceof Error && "status" in error ? Number(error.status) : 0;
+      if (status === 401) {
+        setAuthenticated(false);
+        setDashboard(null);
+        return;
+      }
+      setLoadError(error instanceof Error ? error.message : "Could not load the dashboard.");
     }
   }
 
@@ -188,6 +197,18 @@ function AdminPage() {
     );
   }
 
+  if (loadError)
+    return (
+      <main className="flex min-h-screen items-center justify-center px-5">
+        <div className="surface-card w-full max-w-lg rounded-3xl p-7 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-destructive">Dashboard unavailable</p>
+          <h1 className="mt-3 text-2xl font-bold">Could not load your dashboard</h1>
+          <p className="mt-3 text-sm text-muted-foreground">{loadError}</p>
+          <p className="mt-2 text-sm text-muted-foreground">Check the production Supabase server credentials and that the app settings row exists, then try again.</p>
+          <Button className="mt-6" onClick={() => void load()}>Try again</Button>
+        </div>
+      </main>
+    );
   if (!dashboard)
     return (
       <main className="flex min-h-screen items-center justify-center">Loading dashboard…</main>
