@@ -62,14 +62,15 @@ Till name _MARTHA WAMBUI_
 
 The public catalog is available at `/`. Dealer reporting is protected at `/admin` with the existing PIN `9898`; it keeps float, sales, commissions, customers, and gateway settings out of shared product links.
 
-## Vercel server configuration
+## Vercel storage configuration
 
-The private admin dashboard requires these production-only Supabase variables:
+The private admin dashboard, sales ledger, customer records, float balance, gateway settings, and commission withdrawals use Vercel-compatible Postgres storage. Add one server-only connection variable to the Vercel Production environment:
 
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY` (or the newer `SUPABASE_SECRET_KEY`)
+- POSTGRES_URL (Vercel Postgres or Neon connection string)
 
-The `app_settings` table must contain its initial row with `id = 1`; this row stores the admin PIN, gateway toggle, till number, float balance, and commission settings. Never expose the service/secret key as a `VITE_*` variable.
+The application also accepts DATABASE_URL as a fallback. On the first server request it creates the required tables and seeds the default settings row with admin PIN 9898, editable till 3367738, paybill 4211224, commission 1.5 per KES 10, and withdrawal threshold 10. Never expose the database connection string as a VITE_* variable.
+
+Supabase is no longer required for these admin and sales records. Existing Supabase records are not copied automatically; they remain in the old database unless a separate migration is requested.
 
 ## Daraja configuration
 
