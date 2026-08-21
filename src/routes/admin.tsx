@@ -70,6 +70,15 @@ function AdminPage() {
   const [saving, setSaving] = useState(false);
   const [floatAmount, setFloatAmount] = useState("");
 
+  async function loadDashboard() {
+    const [dashboardResponse, settingsResponse] = await Promise.all([
+      jsonRequest("/api/admin/dashboard"),
+      jsonRequest("/api/admin/settings"),
+    ]);
+    setDashboard(dashboardResponse.data as Dashboard);
+    setSettings(settingsResponse.data as Settings);
+  }
+
   async function load() {
     try {
       const me = await jsonRequest("/api/admin/me");
@@ -77,12 +86,7 @@ function AdminPage() {
         setAuthenticated(false);
         return;
       }
-      const [dashboardResponse, settingsResponse] = await Promise.all([
-        jsonRequest("/api/admin/dashboard"),
-        jsonRequest("/api/admin/settings"),
-      ]);
-      setDashboard(dashboardResponse.data as Dashboard);
-      setSettings(settingsResponse.data as Settings);
+      await loadDashboard();
       setAuthenticated(true);
     } catch {
       setAuthenticated(false);
@@ -106,8 +110,9 @@ function AdminPage() {
         throw new Error("Login did not return a valid session.");
       }
       window.localStorage.setItem(ADMIN_TOKEN_KEY, response.token);
+      await loadDashboard();
+      setAuthenticated(true);
       setPin("");
-      await load();
       toast.success("Admin dashboard unlocked.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not unlock dashboard.");
