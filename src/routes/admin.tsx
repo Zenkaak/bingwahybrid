@@ -34,6 +34,13 @@ export const Route = createFileRoute("/admin")({
     meta: [
       { title: "Bingwa Sokoni Admin" },
       { name: "description", content: "Dealer dashboard for Bingwa Sokoni sales and commissions." },
+      { property: "og:title", content: "Bingwa Sokoni Admin" },
+      {
+        property: "og:description",
+        content: "Dealer dashboard for Bingwa Sokoni sales and commissions.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AdminPage,
@@ -71,12 +78,19 @@ function AdminPage() {
   const [floatAmount, setFloatAmount] = useState("");
 
   async function loadDashboard() {
-    const [dashboardResponse, settingsResponse] = await Promise.all([
+    const [dashboardResult, settingsResult] = await Promise.allSettled([
       jsonRequest("/api/admin/dashboard"),
       jsonRequest("/api/admin/settings"),
     ]);
-    setDashboard(dashboardResponse.data as Dashboard);
-    setSettings(settingsResponse.data as Settings);
+
+    if (dashboardResult.status === "rejected") throw dashboardResult.reason;
+    setDashboard(dashboardResult.value.data as Dashboard);
+
+    if (settingsResult.status === "fulfilled") {
+      setSettings(settingsResult.value.data as Settings);
+    } else {
+      toast.warning("Gateway settings could not load. The dashboard is still available.");
+    }
   }
 
   async function load() {
@@ -86,8 +100,8 @@ function AdminPage() {
         setAuthenticated(false);
         return;
       }
-      await loadDashboard();
       setAuthenticated(true);
+      await loadDashboard();
     } catch {
       setAuthenticated(false);
     }
@@ -110,10 +124,10 @@ function AdminPage() {
         throw new Error("Login did not return a valid session.");
       }
       window.localStorage.setItem(ADMIN_TOKEN_KEY, response.token);
-      await loadDashboard();
       setAuthenticated(true);
       setPin("");
       toast.success("Admin dashboard unlocked.");
+      await loadDashboard();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not unlock dashboard.");
     } finally {
