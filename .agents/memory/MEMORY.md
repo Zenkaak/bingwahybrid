@@ -1,1 +1,1 @@
-- [Payment channel separation](payment-channels.md) — keep Daraja prompt configuration server-only and show only the offline dealer till in the UI.
+- [Payment channel separation](payment-channels.md) — keep Daraja prompt configuration server-only and show only the offline dealer till in the UI.- [Vercel admin prerequisites](vercel-admin-prerequisites.md) — admin reads need a privileged server key and seeded settings row.
