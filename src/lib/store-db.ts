@@ -1,20 +1,373 @@
-import { Pool } from "pg";
+export type GatewaySettings = { enabled: boolean; till: string };
 
-    type GatewaySettings = { enabled: boolean; till: string };
-    type SettingsRow = { admin_pin: string; till_number: string; paybill_number: string; gateway_enabled: boolean; commission_per_ten: string | number; withdraw_threshold: string | number; float_balance: string | number };
-    type DashboardData = { balance: number; salesCount: number; revenue: number; totalCommissions: number; withdrawableCommissions: number; pendingCommissions: number; sales: Array<{ id: string; offerTitle: string; amount: number; paymentPhone: string; receivingPhone: string; commission: number; createdAt: string }>; customers: Array<{ phone: string; salesCount: number; totalSpend: number; lastSeen: string }> };
+export type Deal = {
+  id: string;
+  groupKey: string;
+  title: string;
+  price: number;
+  validity: string;
+  note: string | null;
+  sortOrder: number;
+  active: boolean;
+};
 
-    let pool: Pool | undefined;
-    let schemaPromise: Promise<void> | undefined;
-    function getPool() { if (pool) return pool; const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL; if (!connectionString) throw new Error("Missing POSTGRES_URL. Add a Vercel Postgres connection string to the production environment."); pool = new Pool({ connectionString, max: 1, idleTimeoutMillis: 10000, connectionTimeoutMillis: 10000, ssl: connectionString.includes("localhost") ? false : { rejectUnauthorized: false } }); return pool; }
-    async function ensureSchema() { if (schemaPromise) return schemaPromise; schemaPromise = (async () => { const db = getPool(); await db.query("CREATE TABLE IF NOT EXISTS app_settings (id INTEGER PRIMARY KEY CHECK (id = 1), admin_pin TEXT NOT NULL DEFAULT '9898', till_number TEXT NOT NULL DEFAULT '3367738', paybill_number TEXT NOT NULL DEFAULT '4211224', gateway_enabled BOOLEAN NOT NULL DEFAULT FALSE, commission_per_ten NUMERIC NOT NULL DEFAULT 1.5, withdraw_threshold NUMERIC NOT NULL DEFAULT 10, float_balance NUMERIC NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE TABLE IF NOT EXISTS customers (id TEXT PRIMARY KEY DEFAULT md5(random()::text || clock_timestamp()::text), phone TEXT NOT NULL UNIQUE, purchases INTEGER NOT NULL DEFAULT 0, total_spent NUMERIC NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE TABLE IF NOT EXISTS sales (id TEXT PRIMARY KEY DEFAULT md5(random()::text || clock_timestamp()::text), offer_id TEXT NOT NULL, offer_title TEXT NOT NULL, service TEXT NOT NULL, price NUMERIC NOT NULL, commission NUMERIC NOT NULL DEFAULT 0, payment_phone TEXT NOT NULL, receiving_phone TEXT NOT NULL, for_self BOOLEAN NOT NULL DEFAULT TRUE, gateway_enabled BOOLEAN NOT NULL DEFAULT FALSE, destination TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', checkout_request_id TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE INDEX IF NOT EXISTS sales_created_at_idx ON sales (created_at DESC); CREATE TABLE IF NOT EXISTS withdrawals (id TEXT PRIMARY KEY DEFAULT md5(random()::text || clock_timestamp()::text), amount NUMERIC NOT NULL, phone TEXT, status TEXT NOT NULL DEFAULT 'requested', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());"); await db.query("INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING"); })().catch((error) => { schemaPromise = undefined; throw error; }); return schemaPromise; }
-    async function query<T extends Record<string, unknown>>(text: string, values: unknown[] = []) { await ensureSchema(); return getPool().query<T>(text, values); }
-    async function loadSettings(): Promise<SettingsRow> { const result = await query<SettingsRow>("SELECT * FROM app_settings WHERE id = 1"); const settings = result.rows[0]; if (!settings) throw new Error("Settings are not available right now."); return settings; }
-    export async function getAdminPin() { try { return (await loadSettings()).admin_pin || "9898"; } catch { return "9898"; } }
-    export async function getGatewaySettings(): Promise<GatewaySettings> { const s = await loadSettings(); return { enabled: s.gateway_enabled, till: /^\d{5,10}$/.test(s.till_number) ? s.till_number : "3367738" }; }
-    export async function updateGatewaySettings(s: GatewaySettings) { await query("UPDATE app_settings SET gateway_enabled = $1, till_number = $2, updated_at = NOW() WHERE id = 1", [s.enabled, s.till]); return s; }
-    export async function addFloat(amount: number) { const result = await query<{ float_balance: string }>("UPDATE app_settings SET float_balance = float_balance + $1, updated_at = NOW() WHERE id = 1 RETURNING float_balance", [amount]); if (!result.rows[0]) throw new Error("Could not add float."); return Number(result.rows[0].float_balance); }
-    export async function recordConfirmedSale(input: { offerId: string; offerTitle: string; service: string; amount: number; paymentPhone: string; receivingPhone: string; paymentMode: "mpesa" | "float" }) { await ensureSchema(); const client = await getPool().connect(); try { await client.query("BEGIN"); const settings = (await client.query<SettingsRow>("SELECT * FROM app_settings WHERE id = 1 FOR UPDATE")).rows[0]; if (!settings) throw new Error("Settings are not available right now."); const commission = (input.amount / 10) * Number(settings.commission_per_ten); const destination = settings.gateway_enabled ? settings.till_number : settings.paybill_number; const sale = await client.query<{ id: string }>("INSERT INTO sales (offer_id, offer_title, service, price, commission, payment_phone, receiving_phone, for_self, gateway_enabled, destination, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'paid') RETURNING id", [input.offerId, input.offerTitle, input.service, input.amount, commission, input.paymentPhone, input.receivingPhone, input.paymentPhone === input.receivingPhone, settings.gateway_enabled, destination]); await client.query("INSERT INTO customers (phone, purchases, total_spent, last_seen_at) VALUES ($1,1,$2,NOW()) ON CONFLICT (phone) DO UPDATE SET purchases = customers.purchases + 1, total_spent = customers.total_spent + EXCLUDED.total_spent, last_seen_at = NOW()", [input.receivingPhone, input.amount]); await client.query("COMMIT"); return { id: sale.rows[0]?.id ?? null, commission }; } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); } }
-    export async function getDashboardData(): Promise<DashboardData> { const settings = await loadSettings(); const [a,b,c] = await Promise.all([query<any>("SELECT * FROM sales ORDER BY created_at DESC LIMIT 100"), query<any>("SELECT * FROM customers ORDER BY last_seen_at DESC LIMIT 100"), query<any>("SELECT * FROM withdrawals ORDER BY created_at DESC LIMIT 200")]); const sales=a.rows; const customers=b.rows; const withdrawals=c.rows; const paid=sales.filter((x:any)=>x.status==='paid'); const earned=paid.reduce((n:number,x:any)=>n+Number(x.commission),0); const withdrawn=withdrawals.reduce((n:number,x:any)=>n+Number(x.amount),0); const available=Math.max(0,earned-withdrawn); const threshold=Number(settings.withdraw_threshold)||10; const withdrawable=Math.floor(available/threshold)*threshold; return { balance:Number(settings.float_balance), salesCount:paid.length, revenue:paid.reduce((n:number,x:any)=>n+Number(x.price),0), totalCommissions:Number(earned.toFixed(2)), withdrawableCommissions:Number(withdrawable.toFixed(2)), pendingCommissions:Number((available-withdrawable).toFixed(2)), sales:sales.map((x:any)=>({id:String(x.id),offerTitle:x.offer_title,amount:Number(x.price),paymentPhone:x.payment_phone,receivingPhone:x.receiving_phone,commission:Number(x.commission),createdAt:x.created_at})), customers:customers.map((x:any)=>({phone:x.phone,salesCount:x.purchases,totalSpend:Number(x.total_spent),lastSeen:x.last_seen_at})) }; }
-    export async function requestCommissionWithdrawal(phone?: string | null) { const dashboard=await getDashboardData(); const amount=dashboard.withdrawableCommissions; if (!amount) return { amount: 0 }; await query("INSERT INTO withdrawals (amount, phone, status) VALUES ($1,$2,'requested')", [amount, phone ?? null]); return { amount }; }
-    
+export type Order = {
+  id: string;
+  offerId: string;
+  offerTitle: string;
+  service: string;
+  amount: number;
+  commission: number;
+  paymentPhone: string;
+  receivingPhone: string;
+  status: "pending" | "paid" | "failed";
+  receipt: string | null;
+  resultDesc: string | null;
+  destination: string;
+  createdAt: string;
+};
+
+export type DashboardData = {
+  balance: number;
+  businessName: string;
+  supportPhone: string;
+  salesCount: number;
+  revenue: number;
+  revenueToday: number;
+  salesToday: number;
+  pendingCount: number;
+  failedCount: number;
+  totalCommissions: number;
+  withdrawableCommissions: number;
+  pendingCommissions: number;
+  orders: Order[];
+  customers: Array<{ phone: string; salesCount: number; totalSpend: number; lastSeen: string }>;
+  withdrawals: Array<{ id: string; amount: number; phone: string | null; createdAt: string }>;
+  topDeals: Array<{ title: string; count: number; revenue: number }>;
+};
+
+async function db() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
+
+async function loadSettings() {
+  const client = await db();
+  const { data, error } = await client.from("app_settings").select("*").eq("id", 1).maybeSingle();
+  if (error || !data) throw new Error("Settings are not available right now.");
+  return data as Record<string, unknown>;
+}
+
+export async function getAdminPin() {
+  try {
+    const settings = await loadSettings();
+    return (settings["admin_pin"] as string) || "9898";
+  } catch {
+    return "9898";
+  }
+}
+
+export async function getGatewaySettings(): Promise<GatewaySettings> {
+  const settings = await loadSettings();
+  const till = String(settings["till_number"] ?? "");
+  return {
+    enabled: settings["gateway_enabled"] === true,
+    till: /^\d{5,10}$/.test(till) ? till : "3367738",
+  };
+}
+
+export async function getStoreSettings() {
+  const settings = await loadSettings();
+  return {
+    enabled: settings["gateway_enabled"] === true,
+    till: String(settings["till_number"] ?? "3367738"),
+    paybill: String(settings["paybill_number"] ?? "4211224"),
+    businessName: String(settings["business_name"] ?? "BLACK HOLE BINGWA SERVICES"),
+    supportPhone: String(settings["support_phone"] ?? "0769252572"),
+    commissionPerTen: Number(settings["commission_per_ten"] ?? 1.5),
+    withdrawThreshold: Number(settings["withdraw_threshold"] ?? 10),
+    floatBalance: Number(settings["float_balance"] ?? 0),
+  };
+}
+
+export async function updateStoreSettings(patch: {
+  enabled?: boolean;
+  till?: string;
+  paybill?: string;
+  businessName?: string;
+  supportPhone?: string;
+  adminPin?: string;
+}) {
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (typeof patch.enabled === "boolean") update["gateway_enabled"] = patch.enabled;
+  if (patch.till) update["till_number"] = patch.till;
+  if (patch.paybill) update["paybill_number"] = patch.paybill;
+  if (patch.businessName) update["business_name"] = patch.businessName;
+  if (patch.supportPhone) update["support_phone"] = patch.supportPhone;
+  if (patch.adminPin && /^\d{4,6}$/.test(patch.adminPin)) update["admin_pin"] = patch.adminPin;
+
+  const client = await db();
+  const { error } = await client.from("app_settings").update(update).eq("id", 1);
+  if (error) throw new Error("Could not save settings.");
+  return getStoreSettings();
+}
+
+export async function updateGatewaySettings(settings: GatewaySettings) {
+  await updateStoreSettings({ enabled: settings.enabled, till: settings.till });
+  return settings;
+}
+
+export async function addFloat(amount: number) {
+  const settings = await getStoreSettings();
+  const balance = settings.floatBalance + amount;
+  const client = await db();
+  const { error } = await client
+    .from("app_settings")
+    .update({ float_balance: balance, updated_at: new Date().toISOString() })
+    .eq("id", 1);
+  if (error) throw new Error("Could not add float.");
+  return balance;
+}
+
+function mapDeal(row: Record<string, unknown>): Deal {
+  return {
+    id: String(row["id"]),
+    groupKey: String(row["group_key"]),
+    title: String(row["title"]),
+    price: Number(row["price"]),
+    validity: String(row["validity"]),
+    note: (row["note"] as string | null) ?? null,
+    sortOrder: Number(row["sort_order"] ?? 0),
+    active: row["active"] !== false,
+  };
+}
+
+export async function listDeals(options?: { activeOnly?: boolean }) {
+  const client = await db();
+  let request = client.from("deals").select("*");
+  if (options?.activeOnly) request = request.eq("active", true);
+  const { data, error } = await request
+    .order("group_key", { ascending: true })
+    .order("sort_order", { ascending: true });
+  if (error) throw new Error("Could not load deals.");
+  return (data ?? []).map((row) => mapDeal(row as Record<string, unknown>));
+}
+
+export async function saveDeal(input: Deal) {
+  const client = await db();
+  const { error } = await client.from("deals").upsert({
+    id: input.id,
+    group_key: input.groupKey,
+    title: input.title,
+    price: input.price,
+    validity: input.validity,
+    note: input.note,
+    sort_order: input.sortOrder,
+    active: input.active,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw new Error("Could not save the deal.");
+  return listDeals();
+}
+
+export async function deleteDeal(id: string) {
+  const client = await db();
+  const { error } = await client.from("deals").delete().eq("id", id);
+  if (error) throw new Error("Could not delete the deal.");
+  return listDeals();
+}
+
+export function normalizePhone(input: string) {
+  const digits = input.replace(/\D/g, "");
+  if (digits.startsWith("254")) return digits;
+  if (digits.startsWith("0")) return `254${digits.slice(1)}`;
+  if (digits.length === 9) return `254${digits}`;
+  return digits;
+}
+
+export async function createPendingSale(input: {
+  deal: Deal;
+  paymentPhone: string;
+  receivingPhone: string;
+  checkoutRequestId: string | null;
+}) {
+  const settings = await getStoreSettings();
+  const client = await db();
+  const commission = (input.deal.price / 10) * settings.commissionPerTen;
+  const destination = settings.enabled ? settings.till : settings.paybill;
+  const paymentPhone = normalizePhone(input.paymentPhone);
+  const receivingPhone = normalizePhone(input.receivingPhone);
+
+  await client
+    .from("customers")
+    .upsert({ phone: receivingPhone, last_seen_at: new Date().toISOString() }, { onConflict: "phone" });
+
+  const { data, error } = await client
+    .from("sales")
+    .insert({
+      offer_id: input.deal.id,
+      offer_title: `${input.deal.title} · ${input.deal.validity}`,
+      service: input.deal.groupKey,
+      price: input.deal.price,
+      commission,
+      payment_phone: paymentPhone,
+      receiving_phone: receivingPhone,
+      for_self: paymentPhone === receivingPhone,
+      gateway_enabled: settings.enabled,
+      destination,
+      status: "pending",
+      checkout_request_id: input.checkoutRequestId,
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) throw new Error("Could not record the order.");
+  return { id: String((data as { id: string }).id), commission, destination };
+}
+
+export async function markSaleResult(input: {
+  saleId?: string | null;
+  checkoutRequestId?: string | null;
+  status: "paid" | "failed";
+  receipt?: string | null;
+  resultDesc?: string | null;
+}) {
+  const client = await db();
+  let query = client.from("sales").select("*").limit(1);
+  query = input.saleId
+    ? query.eq("id", input.saleId)
+    : query.eq("checkout_request_id", input.checkoutRequestId ?? "");
+  const { data } = await query.maybeSingle();
+  const sale = data as Record<string, unknown> | null;
+  if (!sale) return null;
+
+  const alreadyPaid = sale["status"] === "paid";
+  await client
+    .from("sales")
+    .update({
+      status: input.status,
+      mpesa_receipt: input.receipt ?? (sale["mpesa_receipt"] as string | null),
+      result_desc: input.resultDesc ?? (sale["result_desc"] as string | null),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", sale["id"] as string);
+
+  if (input.status === "paid" && !alreadyPaid) {
+    const phone = String(sale["receiving_phone"]);
+    const { data: customer } = await client
+      .from("customers")
+      .select("purchases, total_spent")
+      .eq("phone", phone)
+      .maybeSingle();
+    const row = customer as { purchases?: number; total_spent?: number } | null;
+    await client
+      .from("customers")
+      .update({
+        purchases: Number(row?.purchases ?? 0) + 1,
+        total_spent: Number(row?.total_spent ?? 0) + Number(sale["price"]),
+        last_seen_at: new Date().toISOString(),
+      })
+      .eq("phone", phone);
+  }
+
+  return { id: String(sale["id"]), receipt: input.receipt ?? null };
+}
+
+function mapOrder(row: Record<string, unknown>): Order {
+  const status = String(row["status"]);
+  return {
+    id: String(row["id"]),
+    offerId: String(row["offer_id"]),
+    offerTitle: String(row["offer_title"]),
+    service: String(row["service"]),
+    amount: Number(row["price"]),
+    commission: Number(row["commission"]),
+    paymentPhone: String(row["payment_phone"]),
+    receivingPhone: String(row["receiving_phone"]),
+    status: status === "paid" || status === "failed" ? status : "pending",
+    receipt: (row["mpesa_receipt"] as string | null) ?? null,
+    resultDesc: (row["result_desc"] as string | null) ?? null,
+    destination: String(row["destination"] ?? ""),
+    createdAt: String(row["created_at"]),
+  };
+}
+
+export async function getDashboardData(): Promise<DashboardData> {
+  const settings = await getStoreSettings();
+  const client = await db();
+  const [salesResult, customerResult, withdrawalResult] = await Promise.all([
+    client.from("sales").select("*").order("created_at", { ascending: false }).limit(300),
+    client.from("customers").select("*").order("last_seen_at", { ascending: false }).limit(300),
+    client.from("withdrawals").select("*").order("created_at", { ascending: false }).limit(100),
+  ]);
+
+  const orders = (salesResult.data ?? []).map((row) => mapOrder(row as Record<string, unknown>));
+  const paid = orders.filter((order) => order.status === "paid");
+  const earned = paid.reduce((sum, order) => sum + order.commission, 0);
+  const withdrawals = (withdrawalResult.data ?? []).map((row) => {
+    const item = row as Record<string, unknown>;
+    return {
+      id: String(item["id"]),
+      amount: Number(item["amount"]),
+      phone: (item["phone"] as string | null) ?? null,
+      createdAt: String(item["created_at"]),
+    };
+  });
+  const withdrawn = withdrawals.reduce((sum, item) => sum + item.amount, 0);
+  const available = Math.max(0, earned - withdrawn);
+  const threshold = settings.withdrawThreshold || 10;
+  const withdrawable = Math.floor(available / threshold) * threshold;
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const paidToday = paid.filter((order) => new Date(order.createdAt) >= startOfDay);
+
+  const dealTotals = new Map<string, { title: string; count: number; revenue: number }>();
+  for (const order of paid) {
+    const current = dealTotals.get(order.offerId) ?? {
+      title: order.offerTitle,
+      count: 0,
+      revenue: 0,
+    };
+    current.count += 1;
+    current.revenue += order.amount;
+    dealTotals.set(order.offerId, current);
+  }
+
+  return {
+    balance: settings.floatBalance,
+    businessName: settings.businessName,
+    supportPhone: settings.supportPhone,
+    salesCount: paid.length,
+    revenue: paid.reduce((sum, order) => sum + order.amount, 0),
+    revenueToday: paidToday.reduce((sum, order) => sum + order.amount, 0),
+    salesToday: paidToday.length,
+    pendingCount: orders.filter((order) => order.status === "pending").length,
+    failedCount: orders.filter((order) => order.status === "failed").length,
+    totalCommissions: Number(earned.toFixed(2)),
+    withdrawableCommissions: Number(withdrawable.toFixed(2)),
+    pendingCommissions: Number((available - withdrawable).toFixed(2)),
+    orders,
+    customers: (customerResult.data ?? []).map((row) => {
+      const item = row as Record<string, unknown>;
+      return {
+        phone: String(item["phone"]),
+        salesCount: Number(item["purchases"] ?? 0),
+        totalSpend: Number(item["total_spent"] ?? 0),
+        lastSeen: String(item["last_seen_at"]),
+      };
+    }),
+    withdrawals,
+    topDeals: [...dealTotals.values()].sort((a, b) => b.count - a.count).slice(0, 5),
+  };
+}
+
+export async function requestCommissionWithdrawal(phone?: string | null) {
+  const dashboard = await getDashboardData();
+  const amount = dashboard.withdrawableCommissions;
+  if (!amount) return { amount: 0 };
+  const client = await db();
+  await client
+    .from("withdrawals")
+    .insert({ amount, phone: phone ?? null, status: "requested" });
+  return { amount };
+}
