@@ -19,11 +19,13 @@ export type Database = {
           activated: boolean
           activated_at: string | null
           admin_pin: string
+          business_name: string
           commission_per_ten: number
           float_balance: number
           gateway_enabled: boolean
           id: number
           paybill_number: string
+          support_phone: string
           till_number: string
           updated_at: string
           withdraw_threshold: number
@@ -32,11 +34,13 @@ export type Database = {
           activated?: boolean
           activated_at?: string | null
           admin_pin?: string
+          business_name?: string
           commission_per_ten?: number
           float_balance?: number
           gateway_enabled?: boolean
           id?: number
           paybill_number?: string
+          support_phone?: string
           till_number?: string
           updated_at?: string
           withdraw_threshold?: number
@@ -45,11 +49,13 @@ export type Database = {
           activated?: boolean
           activated_at?: string | null
           admin_pin?: string
+          business_name?: string
           commission_per_ten?: number
           float_balance?: number
           gateway_enabled?: boolean
           id?: number
           paybill_number?: string
+          support_phone?: string
           till_number?: string
           updated_at?: string
           withdraw_threshold?: number
@@ -83,6 +89,45 @@ export type Database = {
         }
         Relationships: []
       }
+      deals: {
+        Row: {
+          active: boolean
+          created_at: string
+          group_key: string
+          id: string
+          note: string | null
+          price: number
+          sort_order: number
+          title: string
+          updated_at: string
+          validity: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          group_key: string
+          id: string
+          note?: string | null
+          price: number
+          sort_order?: number
+          title: string
+          updated_at?: string
+          validity: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          group_key?: string
+          id?: string
+          note?: string | null
+          price?: number
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          validity?: string
+        }
+        Relationships: []
+      }
       sales: {
         Row: {
           checkout_request_id: string | null
@@ -92,13 +137,16 @@ export type Database = {
           for_self: boolean
           gateway_enabled: boolean
           id: string
+          mpesa_receipt: string | null
           offer_id: string
           offer_title: string
           payment_phone: string
           price: number
           receiving_phone: string
+          result_desc: string | null
           service: string
           status: string
+          updated_at: string
         }
         Insert: {
           checkout_request_id?: string | null
@@ -108,13 +156,16 @@ export type Database = {
           for_self?: boolean
           gateway_enabled?: boolean
           id?: string
+          mpesa_receipt?: string | null
           offer_id: string
           offer_title: string
           payment_phone: string
           price: number
           receiving_phone: string
+          result_desc?: string | null
           service: string
           status?: string
+          updated_at?: string
         }
         Update: {
           checkout_request_id?: string | null
@@ -124,13 +175,16 @@ export type Database = {
           for_self?: boolean
           gateway_enabled?: boolean
           id?: string
+          mpesa_receipt?: string | null
           offer_id?: string
           offer_title?: string
           payment_phone?: string
           price?: number
           receiving_phone?: string
+          result_desc?: string | null
           service?: string
           status?: string
+          updated_at?: string
         }
         Relationships: []
       }
