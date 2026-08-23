@@ -74,23 +74,20 @@ async function getDarajaConfig(): Promise<DarajaConfig | null> {
   }
 
   const isProduction = process.env["DARAJA_ENV"] === "production";
-  const accountType =
-    getEnvValue("DARAJA_ACCOUNT_TYPE")?.toLowerCase() === "paybill" ? "paybill" : "till";
-
   const gateway = await getGatewaySettings().catch(() => ({ enabled: false, till: "3367738" }));
-  const businessShortcode = gateway.enabled ? gateway.till : shortcode;
+  // Buy Goods (till) flow: BusinessShortCode is the store/head-office number used for the
+  // password, PartyB is the till that actually receives the money (PARTY_B in the environment).
+  const partyB = getEnvValue("PARTY_B") || (gateway.enabled ? gateway.till : shortcode);
+
   return {
     consumerKey,
     consumerSecret,
-    shortcode: businessShortcode,
+    shortcode,
+    partyB,
     passkey,
     callbackUrl,
     baseUrl: `https://${isProduction ? "api" : "sandbox"}.safaricom.co.ke`,
-    transactionType: gateway.enabled
-      ? "CustomerBuyGoodsOnline"
-      : accountType === "paybill"
-        ? "CustomerPayBillOnline"
-        : "CustomerBuyGoodsOnline",
+    transactionType: "CustomerBuyGoodsOnline",
   };
 }
 
