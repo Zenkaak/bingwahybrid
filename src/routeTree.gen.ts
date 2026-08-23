@@ -19,7 +19,6 @@ import { Route as ApiAdminSettingsRouteImport } from './routes/api/admin/setting
 import { Route as ApiAdminWithdrawRouteImport } from './routes/api/admin/withdraw'
 import { Route as ApiPublicMpesaRouteImport } from './routes/api/public/mpesa'
 import { Route as ApiPublicMpesaCallbackRouteImport } from './routes/api/public/mpesa-callback'
-import { Route as ApiPublicSalesRouteImport } from './routes/api/public/sales'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -71,11 +70,6 @@ const ApiPublicMpesaCallbackRoute = ApiPublicMpesaCallbackRouteImport.update({
   path: '/api/public/mpesa-callback',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicSalesRoute = ApiPublicSalesRouteImport.update({
-  id: '/api/public/sales',
-  path: '/api/public/sales',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -88,7 +82,6 @@ export interface FileRoutesByFullPath {
   '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
-  '/api/public/sales': typeof ApiPublicSalesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,7 +94,6 @@ export interface FileRoutesByTo {
   '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
-  '/api/public/sales': typeof ApiPublicSalesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -115,7 +107,6 @@ export interface FileRoutesById {
   '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
-  '/api/public/sales': typeof ApiPublicSalesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -130,7 +121,6 @@ export interface FileRouteTypes {
     | '/api/admin/withdraw'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
-    | '/api/public/sales'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -143,7 +133,6 @@ export interface FileRouteTypes {
     | '/api/admin/withdraw'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
-    | '/api/public/sales'
   id:
     | '__root__'
     | '/'
@@ -156,7 +145,6 @@ export interface FileRouteTypes {
     | '/api/admin/withdraw'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
-    | '/api/public/sales'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -170,7 +158,6 @@ export interface RootRouteChildren {
   ApiAdminWithdrawRoute: typeof ApiAdminWithdrawRoute
   ApiPublicMpesaRoute: typeof ApiPublicMpesaRoute
   ApiPublicMpesaCallbackRoute: typeof ApiPublicMpesaCallbackRoute
-  ApiPublicSalesRoute: typeof ApiPublicSalesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -245,13 +232,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMpesaCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/sales': {
-      id: '/api/public/sales'
-      path: '/api/public/sales'
-      fullPath: '/api/public/sales'
-      preLoaderRoute: typeof ApiPublicSalesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -266,7 +246,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminWithdrawRoute: ApiAdminWithdrawRoute,
   ApiPublicMpesaRoute: ApiPublicMpesaRoute,
   ApiPublicMpesaCallbackRoute: ApiPublicMpesaCallbackRoute,
-  ApiPublicSalesRoute: ApiPublicSalesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
