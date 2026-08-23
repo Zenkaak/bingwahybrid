@@ -98,13 +98,22 @@ export async function updateStoreSettings(patch: {
   supportPhone?: string;
   adminPin?: string;
 }) {
-  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (typeof patch.enabled === "boolean") update["gateway_enabled"] = patch.enabled;
-  if (patch.till) update["till_number"] = patch.till;
-  if (patch.paybill) update["paybill_number"] = patch.paybill;
-  if (patch.businessName) update["business_name"] = patch.businessName;
-  if (patch.supportPhone) update["support_phone"] = patch.supportPhone;
-  if (patch.adminPin && /^\d{4,6}$/.test(patch.adminPin)) update["admin_pin"] = patch.adminPin;
+  const update: {
+    updated_at: string;
+    gateway_enabled?: boolean;
+    till_number?: string;
+    paybill_number?: string;
+    business_name?: string;
+    support_phone?: string;
+    admin_pin?: string;
+  } = { updated_at: new Date().toISOString() };
+  if (typeof patch.enabled === "boolean") update.gateway_enabled = patch.enabled;
+  if (patch.till) update.till_number = patch.till;
+  if (patch.paybill) update.paybill_number = patch.paybill;
+  if (patch.businessName) update.business_name = patch.businessName;
+  if (patch.supportPhone) update.support_phone = patch.supportPhone;
+  if (patch.adminPin && /^\d{4,6}$/.test(patch.adminPin)) update.admin_pin = patch.adminPin;
+
 
   const client = await db();
   const { error } = await client.from("app_settings").update(update).eq("id", 1);
