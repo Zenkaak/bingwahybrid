@@ -17,10 +17,11 @@ type DarajaConfig = {
   consumerKey: string;
   consumerSecret: string;
   shortcode: string;
+  partyB: string;
   passkey: string;
   callbackUrl: string;
   baseUrl: string;
-  transactionType: "CustomerPayBillOnline" | "CustomerBuyGoodsOnline";
+  transactionType: "CustomerBuyGoodsOnline";
 };
 
 type DarajaErrorResponse = {
@@ -146,7 +147,7 @@ export async function performStkPush(data: StkInput) {
         TransactionType: config.transactionType,
         Amount: data.amount,
         PartyA: phone,
-        PartyB: config.shortcode,
+        PartyB: config.partyB,
         PhoneNumber: phone,
         CallBackURL: config.callbackUrl,
         AccountReference: data.reference,
