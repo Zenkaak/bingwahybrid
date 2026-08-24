@@ -13,12 +13,16 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ApiAdminAuthRouteImport } from './routes/api/admin/auth'
 import { Route as ApiAdminDashboardRouteImport } from './routes/api/admin/dashboard'
+import { Route as ApiAdminDealsRouteImport } from './routes/api/admin/deals'
 import { Route as ApiAdminFloatRouteImport } from './routes/api/admin/float'
 import { Route as ApiAdminMeRouteImport } from './routes/api/admin/me'
 import { Route as ApiAdminSettingsRouteImport } from './routes/api/admin/settings'
 import { Route as ApiAdminWithdrawRouteImport } from './routes/api/admin/withdraw'
+import { Route as ApiPublicCheckoutRouteImport } from './routes/api/public/checkout'
+import { Route as ApiPublicDealsRouteImport } from './routes/api/public/deals'
 import { Route as ApiPublicMpesaRouteImport } from './routes/api/public/mpesa'
 import { Route as ApiPublicMpesaCallbackRouteImport } from './routes/api/public/mpesa-callback'
+import { Route as ApiPublicOrderStatusRouteImport } from './routes/api/public/order-status'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -38,6 +42,11 @@ const ApiAdminAuthRoute = ApiAdminAuthRouteImport.update({
 const ApiAdminDashboardRoute = ApiAdminDashboardRouteImport.update({
   id: '/api/admin/dashboard',
   path: '/api/admin/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminDealsRoute = ApiAdminDealsRouteImport.update({
+  id: '/api/admin/deals',
+  path: '/api/admin/deals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminFloatRoute = ApiAdminFloatRouteImport.update({
@@ -60,6 +69,16 @@ const ApiAdminWithdrawRoute = ApiAdminWithdrawRouteImport.update({
   path: '/api/admin/withdraw',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCheckoutRoute = ApiPublicCheckoutRouteImport.update({
+  id: '/api/public/checkout',
+  path: '/api/public/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicDealsRoute = ApiPublicDealsRouteImport.update({
+  id: '/api/public/deals',
+  path: '/api/public/deals',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicMpesaRoute = ApiPublicMpesaRouteImport.update({
   id: '/api/public/mpesa',
   path: '/api/public/mpesa',
@@ -70,30 +89,43 @@ const ApiPublicMpesaCallbackRoute = ApiPublicMpesaCallbackRouteImport.update({
   path: '/api/public/mpesa-callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicOrderStatusRoute = ApiPublicOrderStatusRouteImport.update({
+  id: '/api/public/order-status',
+  path: '/api/public/order-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/api/admin/auth': typeof ApiAdminAuthRoute
   '/api/admin/dashboard': typeof ApiAdminDashboardRoute
+  '/api/admin/deals': typeof ApiAdminDealsRoute
   '/api/admin/float': typeof ApiAdminFloatRoute
   '/api/admin/me': typeof ApiAdminMeRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
   '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
+  '/api/public/checkout': typeof ApiPublicCheckoutRoute
+  '/api/public/deals': typeof ApiPublicDealsRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
+  '/api/public/order-status': typeof ApiPublicOrderStatusRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/api/admin/auth': typeof ApiAdminAuthRoute
   '/api/admin/dashboard': typeof ApiAdminDashboardRoute
+  '/api/admin/deals': typeof ApiAdminDealsRoute
   '/api/admin/float': typeof ApiAdminFloatRoute
   '/api/admin/me': typeof ApiAdminMeRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
   '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
+  '/api/public/checkout': typeof ApiPublicCheckoutRoute
+  '/api/public/deals': typeof ApiPublicDealsRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
+  '/api/public/order-status': typeof ApiPublicOrderStatusRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -101,12 +133,16 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/api/admin/auth': typeof ApiAdminAuthRoute
   '/api/admin/dashboard': typeof ApiAdminDashboardRoute
+  '/api/admin/deals': typeof ApiAdminDealsRoute
   '/api/admin/float': typeof ApiAdminFloatRoute
   '/api/admin/me': typeof ApiAdminMeRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
   '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
+  '/api/public/checkout': typeof ApiPublicCheckoutRoute
+  '/api/public/deals': typeof ApiPublicDealsRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
+  '/api/public/order-status': typeof ApiPublicOrderStatusRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -115,36 +151,48 @@ export interface FileRouteTypes {
     | '/admin'
     | '/api/admin/auth'
     | '/api/admin/dashboard'
+    | '/api/admin/deals'
     | '/api/admin/float'
     | '/api/admin/me'
     | '/api/admin/settings'
     | '/api/admin/withdraw'
+    | '/api/public/checkout'
+    | '/api/public/deals'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
+    | '/api/public/order-status'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/admin'
     | '/api/admin/auth'
     | '/api/admin/dashboard'
+    | '/api/admin/deals'
     | '/api/admin/float'
     | '/api/admin/me'
     | '/api/admin/settings'
     | '/api/admin/withdraw'
+    | '/api/public/checkout'
+    | '/api/public/deals'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
+    | '/api/public/order-status'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/api/admin/auth'
     | '/api/admin/dashboard'
+    | '/api/admin/deals'
     | '/api/admin/float'
     | '/api/admin/me'
     | '/api/admin/settings'
     | '/api/admin/withdraw'
+    | '/api/public/checkout'
+    | '/api/public/deals'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
+    | '/api/public/order-status'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -152,12 +200,16 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   ApiAdminAuthRoute: typeof ApiAdminAuthRoute
   ApiAdminDashboardRoute: typeof ApiAdminDashboardRoute
+  ApiAdminDealsRoute: typeof ApiAdminDealsRoute
   ApiAdminFloatRoute: typeof ApiAdminFloatRoute
   ApiAdminMeRoute: typeof ApiAdminMeRoute
   ApiAdminSettingsRoute: typeof ApiAdminSettingsRoute
   ApiAdminWithdrawRoute: typeof ApiAdminWithdrawRoute
+  ApiPublicCheckoutRoute: typeof ApiPublicCheckoutRoute
+  ApiPublicDealsRoute: typeof ApiPublicDealsRoute
   ApiPublicMpesaRoute: typeof ApiPublicMpesaRoute
   ApiPublicMpesaCallbackRoute: typeof ApiPublicMpesaCallbackRoute
+  ApiPublicOrderStatusRoute: typeof ApiPublicOrderStatusRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -190,6 +242,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/deals': {
+      id: '/api/admin/deals'
+      path: '/api/admin/deals'
+      fullPath: '/api/admin/deals'
+      preLoaderRoute: typeof ApiAdminDealsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/float': {
       id: '/api/admin/float'
       path: '/api/admin/float'
@@ -218,6 +277,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminWithdrawRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/checkout': {
+      id: '/api/public/checkout'
+      path: '/api/public/checkout'
+      fullPath: '/api/public/checkout'
+      preLoaderRoute: typeof ApiPublicCheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/deals': {
+      id: '/api/public/deals'
+      path: '/api/public/deals'
+      fullPath: '/api/public/deals'
+      preLoaderRoute: typeof ApiPublicDealsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/mpesa': {
       id: '/api/public/mpesa'
       path: '/api/public/mpesa'
@@ -232,6 +305,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMpesaCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/order-status': {
+      id: '/api/public/order-status'
+      path: '/api/public/order-status'
+      fullPath: '/api/public/order-status'
+      preLoaderRoute: typeof ApiPublicOrderStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -240,12 +320,16 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   ApiAdminAuthRoute: ApiAdminAuthRoute,
   ApiAdminDashboardRoute: ApiAdminDashboardRoute,
+  ApiAdminDealsRoute: ApiAdminDealsRoute,
   ApiAdminFloatRoute: ApiAdminFloatRoute,
   ApiAdminMeRoute: ApiAdminMeRoute,
   ApiAdminSettingsRoute: ApiAdminSettingsRoute,
   ApiAdminWithdrawRoute: ApiAdminWithdrawRoute,
+  ApiPublicCheckoutRoute: ApiPublicCheckoutRoute,
+  ApiPublicDealsRoute: ApiPublicDealsRoute,
   ApiPublicMpesaRoute: ApiPublicMpesaRoute,
   ApiPublicMpesaCallbackRoute: ApiPublicMpesaCallbackRoute,
+  ApiPublicOrderStatusRoute: ApiPublicOrderStatusRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
