@@ -21,6 +21,7 @@ import { Route as ApiPublicCheckoutRouteImport } from './routes/api/public/check
 import { Route as ApiPublicDealsRouteImport } from './routes/api/public/deals'
 import { Route as ApiPublicMpesaRouteImport } from './routes/api/public/mpesa'
 import { Route as ApiPublicMpesaCallbackRouteImport } from './routes/api/public/mpesa-callback'
+import { Route as ApiPublicOrderStatusRouteImport } from './routes/api/public/order-status'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -82,6 +83,11 @@ const ApiPublicMpesaCallbackRoute = ApiPublicMpesaCallbackRouteImport.update({
   path: '/api/public/mpesa-callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicOrderStatusRoute = ApiPublicOrderStatusRouteImport.update({
+  id: '/api/public/order-status',
+  path: '/api/public/order-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/api/public/deals': typeof ApiPublicDealsRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
+  '/api/public/order-status': typeof ApiPublicOrderStatusRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/api/public/deals': typeof ApiPublicDealsRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
+  '/api/public/order-status': typeof ApiPublicOrderStatusRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/api/public/deals': typeof ApiPublicDealsRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
+  '/api/public/order-status': typeof ApiPublicOrderStatusRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/api/public/deals'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
+    | '/api/public/order-status'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/api/public/deals'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
+    | '/api/public/order-status'
   id:
     | '__root__'
     | '/'
@@ -169,6 +180,7 @@ export interface FileRouteTypes {
     | '/api/public/deals'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
+    | '/api/public/order-status'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -184,6 +196,7 @@ export interface RootRouteChildren {
   ApiPublicDealsRoute: typeof ApiPublicDealsRoute
   ApiPublicMpesaRoute: typeof ApiPublicMpesaRoute
   ApiPublicMpesaCallbackRoute: typeof ApiPublicMpesaCallbackRoute
+  ApiPublicOrderStatusRoute: typeof ApiPublicOrderStatusRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -272,6 +285,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMpesaCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/order-status': {
+      id: '/api/public/order-status'
+      path: '/api/public/order-status'
+      fullPath: '/api/public/order-status'
+      preLoaderRoute: typeof ApiPublicOrderStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -288,6 +308,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicDealsRoute: ApiPublicDealsRoute,
   ApiPublicMpesaRoute: ApiPublicMpesaRoute,
   ApiPublicMpesaCallbackRoute: ApiPublicMpesaCallbackRoute,
+  ApiPublicOrderStatusRoute: ApiPublicOrderStatusRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
