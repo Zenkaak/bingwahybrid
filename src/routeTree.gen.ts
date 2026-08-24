@@ -17,6 +17,7 @@ import { Route as ApiAdminFloatRouteImport } from './routes/api/admin/float'
 import { Route as ApiAdminMeRouteImport } from './routes/api/admin/me'
 import { Route as ApiAdminSettingsRouteImport } from './routes/api/admin/settings'
 import { Route as ApiAdminWithdrawRouteImport } from './routes/api/admin/withdraw'
+import { Route as ApiPublicDealsRouteImport } from './routes/api/public/deals'
 import { Route as ApiPublicMpesaRouteImport } from './routes/api/public/mpesa'
 import { Route as ApiPublicMpesaCallbackRouteImport } from './routes/api/public/mpesa-callback'
 
@@ -60,6 +61,11 @@ const ApiAdminWithdrawRoute = ApiAdminWithdrawRouteImport.update({
   path: '/api/admin/withdraw',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicDealsRoute = ApiPublicDealsRouteImport.update({
+  id: '/api/public/deals',
+  path: '/api/public/deals',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicMpesaRoute = ApiPublicMpesaRouteImport.update({
   id: '/api/public/mpesa',
   path: '/api/public/mpesa',
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/me': typeof ApiAdminMeRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
   '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
+  '/api/public/deals': typeof ApiPublicDealsRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
 }
@@ -92,6 +99,7 @@ export interface FileRoutesByTo {
   '/api/admin/me': typeof ApiAdminMeRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
   '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
+  '/api/public/deals': typeof ApiPublicDealsRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
 }
@@ -105,6 +113,7 @@ export interface FileRoutesById {
   '/api/admin/me': typeof ApiAdminMeRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
   '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
+  '/api/public/deals': typeof ApiPublicDealsRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
 }
@@ -119,6 +128,7 @@ export interface FileRouteTypes {
     | '/api/admin/me'
     | '/api/admin/settings'
     | '/api/admin/withdraw'
+    | '/api/public/deals'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
   fileRoutesByTo: FileRoutesByTo
@@ -131,6 +141,7 @@ export interface FileRouteTypes {
     | '/api/admin/me'
     | '/api/admin/settings'
     | '/api/admin/withdraw'
+    | '/api/public/deals'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
   id:
@@ -143,6 +154,7 @@ export interface FileRouteTypes {
     | '/api/admin/me'
     | '/api/admin/settings'
     | '/api/admin/withdraw'
+    | '/api/public/deals'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
   fileRoutesById: FileRoutesById
@@ -156,6 +168,7 @@ export interface RootRouteChildren {
   ApiAdminMeRoute: typeof ApiAdminMeRoute
   ApiAdminSettingsRoute: typeof ApiAdminSettingsRoute
   ApiAdminWithdrawRoute: typeof ApiAdminWithdrawRoute
+  ApiPublicDealsRoute: typeof ApiPublicDealsRoute
   ApiPublicMpesaRoute: typeof ApiPublicMpesaRoute
   ApiPublicMpesaCallbackRoute: typeof ApiPublicMpesaCallbackRoute
 }
@@ -218,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminWithdrawRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/deals': {
+      id: '/api/public/deals'
+      path: '/api/public/deals'
+      fullPath: '/api/public/deals'
+      preLoaderRoute: typeof ApiPublicDealsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/mpesa': {
       id: '/api/public/mpesa'
       path: '/api/public/mpesa'
@@ -244,6 +264,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminMeRoute: ApiAdminMeRoute,
   ApiAdminSettingsRoute: ApiAdminSettingsRoute,
   ApiAdminWithdrawRoute: ApiAdminWithdrawRoute,
+  ApiPublicDealsRoute: ApiPublicDealsRoute,
   ApiPublicMpesaRoute: ApiPublicMpesaRoute,
   ApiPublicMpesaCallbackRoute: ApiPublicMpesaCallbackRoute,
 }
