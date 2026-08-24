@@ -51,12 +51,24 @@ async function db() {
   return supabaseAdmin;
 }
 
+let settingsCache: { row: Record<string, unknown>; at: number } | null = null;
+
 async function loadSettings() {
   const client = await db();
-  const { data, error } = await client.from("app_settings").select("*").eq("id", 1).maybeSingle();
-  if (error || !data) throw new Error("Settings are not available right now.");
-  return data as Record<string, unknown>;
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data, error } = await client.from("app_settings").select("*").eq("id", 1).maybeSingle();
+    if (data) {
+      settingsCache = { row: data as Record<string, unknown>, at: Date.now() };
+      return settingsCache.row;
+    }
+    lastError = error;
+  }
+  if (settingsCache) return settingsCache.row;
+  console.error("[settings] load failed", lastError);
+  throw new Error("Settings are not available right now.");
 }
+
 
 export async function getAdminPin() {
   try {
