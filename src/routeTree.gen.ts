@@ -17,6 +17,7 @@ import { Route as ApiAdminFloatRouteImport } from './routes/api/admin/float'
 import { Route as ApiAdminMeRouteImport } from './routes/api/admin/me'
 import { Route as ApiAdminSettingsRouteImport } from './routes/api/admin/settings'
 import { Route as ApiAdminWithdrawRouteImport } from './routes/api/admin/withdraw'
+import { Route as ApiPublicCheckoutRouteImport } from './routes/api/public/checkout'
 import { Route as ApiPublicDealsRouteImport } from './routes/api/public/deals'
 import { Route as ApiPublicMpesaRouteImport } from './routes/api/public/mpesa'
 import { Route as ApiPublicMpesaCallbackRouteImport } from './routes/api/public/mpesa-callback'
@@ -61,6 +62,11 @@ const ApiAdminWithdrawRoute = ApiAdminWithdrawRouteImport.update({
   path: '/api/admin/withdraw',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCheckoutRoute = ApiPublicCheckoutRouteImport.update({
+  id: '/api/public/checkout',
+  path: '/api/public/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicDealsRoute = ApiPublicDealsRouteImport.update({
   id: '/api/public/deals',
   path: '/api/public/deals',
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/me': typeof ApiAdminMeRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
   '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
+  '/api/public/checkout': typeof ApiPublicCheckoutRoute
   '/api/public/deals': typeof ApiPublicDealsRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/api/admin/me': typeof ApiAdminMeRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
   '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
+  '/api/public/checkout': typeof ApiPublicCheckoutRoute
   '/api/public/deals': typeof ApiPublicDealsRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/api/admin/me': typeof ApiAdminMeRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
   '/api/admin/withdraw': typeof ApiAdminWithdrawRoute
+  '/api/public/checkout': typeof ApiPublicCheckoutRoute
   '/api/public/deals': typeof ApiPublicDealsRoute
   '/api/public/mpesa': typeof ApiPublicMpesaRoute
   '/api/public/mpesa-callback': typeof ApiPublicMpesaCallbackRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/api/admin/me'
     | '/api/admin/settings'
     | '/api/admin/withdraw'
+    | '/api/public/checkout'
     | '/api/public/deals'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/api/admin/me'
     | '/api/admin/settings'
     | '/api/admin/withdraw'
+    | '/api/public/checkout'
     | '/api/public/deals'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/api/admin/me'
     | '/api/admin/settings'
     | '/api/admin/withdraw'
+    | '/api/public/checkout'
     | '/api/public/deals'
     | '/api/public/mpesa'
     | '/api/public/mpesa-callback'
@@ -168,6 +180,7 @@ export interface RootRouteChildren {
   ApiAdminMeRoute: typeof ApiAdminMeRoute
   ApiAdminSettingsRoute: typeof ApiAdminSettingsRoute
   ApiAdminWithdrawRoute: typeof ApiAdminWithdrawRoute
+  ApiPublicCheckoutRoute: typeof ApiPublicCheckoutRoute
   ApiPublicDealsRoute: typeof ApiPublicDealsRoute
   ApiPublicMpesaRoute: typeof ApiPublicMpesaRoute
   ApiPublicMpesaCallbackRoute: typeof ApiPublicMpesaCallbackRoute
@@ -231,6 +244,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminWithdrawRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/checkout': {
+      id: '/api/public/checkout'
+      path: '/api/public/checkout'
+      fullPath: '/api/public/checkout'
+      preLoaderRoute: typeof ApiPublicCheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/deals': {
       id: '/api/public/deals'
       path: '/api/public/deals'
@@ -264,6 +284,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminMeRoute: ApiAdminMeRoute,
   ApiAdminSettingsRoute: ApiAdminSettingsRoute,
   ApiAdminWithdrawRoute: ApiAdminWithdrawRoute,
+  ApiPublicCheckoutRoute: ApiPublicCheckoutRoute,
   ApiPublicDealsRoute: ApiPublicDealsRoute,
   ApiPublicMpesaRoute: ApiPublicMpesaRoute,
   ApiPublicMpesaCallbackRoute: ApiPublicMpesaCallbackRoute,
