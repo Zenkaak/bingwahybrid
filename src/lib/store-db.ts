@@ -94,7 +94,7 @@ export async function getStoreSettings() {
     enabled: settings["gateway_enabled"] === true,
     till: String(settings["till_number"] ?? "3367738"),
     paybill: String(settings["paybill_number"] ?? "4211224"),
-    businessName: String(settings["business_name"] ?? "BLACK HOLE BINGWA SERVICES"),
+    businessName: String(settings["business_name"] ?? "TIM'S DATA SOLUTIONS"),
     supportPhone: String(settings["support_phone"] ?? "0769252572"),
     commissionPerTen: Number(settings["commission_per_ten"] ?? 1.5),
     withdrawThreshold: Number(settings["withdraw_threshold"] ?? 10),
@@ -130,6 +130,7 @@ export async function updateStoreSettings(patch: {
   const client = await db();
   const { error } = await client.from("app_settings").update(update).eq("id", 1);
   if (error) throw new Error("Could not save settings.");
+  settingsCache = null;
   return getStoreSettings();
 }
 
@@ -147,6 +148,7 @@ export async function addFloat(amount: number) {
     .update({ float_balance: balance, updated_at: new Date().toISOString() })
     .eq("id", 1);
   if (error) throw new Error("Could not add float.");
+  settingsCache = null;
   return balance;
 }
 
@@ -391,4 +393,11 @@ export async function requestCommissionWithdrawal(phone?: string | null) {
     .from("withdrawals")
     .insert({ amount, phone: phone ?? null, status: "requested" });
   return { amount };
+}
+
+export async function getDeal(id: string) {
+  const client = await db();
+  const { data } = await client.from("deals").select("*").eq("id", id).maybeSingle();
+  if (!data) return null;
+  return mapDeal(data as Record<string, unknown>);
 }
