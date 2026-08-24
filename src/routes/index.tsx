@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,204 +14,218 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Toaster } from "@/components/ui/sonner";
-import { OFFER_GROUPS, type Offer } from "@/lib/packages";
 
-const PAYMENT_POLL_ATTEMPTS = 10;
-const PAYMENT_POLL_DELAY_MS = 3000;
+const POLL_ATTEMPTS = 12;
+const POLL_DELAY_MS = 3000;
+const DEFAULT_SUPPORT_PHONE = "0769252572";
 
-type PaymentResult = { ok: true; checkoutRequestId: string | null } | { ok: false; error: string };
+type Deal = {
+  id: string;
+  groupKey: string;
+  title: string;
+  price: number;
+  validity: string;
+  note: string | null;
+  sortOrder: number;
+  active: boolean;
+};
 
-async function requestPayment(
-  action: "stkPush" | "stkQuery",
-  data: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
-  const response = await fetch("/api/public/mpesa", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action, data }),
-  });
-  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!response.ok) throw new Error(String(body["error"] ?? "Payment service rejected the request."));
-  return body;
-}
-
-async function waitForPayment(checkoutRequestId: string | null) {
-  if (!checkoutRequestId)
-    return { status: "pending" as const, message: "Prompt sent. Awaiting confirmation." };
-  for (let attempt = 0; attempt < PAYMENT_POLL_ATTEMPTS; attempt += 1) {
-    if (attempt) await new Promise((resolve) => setTimeout(resolve, PAYMENT_POLL_DELAY_MS));
-    const result = await requestPayment("stkQuery", { checkoutRequestId });
-    if (result["ok"] !== true)
-      return { status: "failed" as const, message: String(result["error"] ?? "Payment failed.") };
-    if (result["status"] !== "pending")
-      return result as { status: "success" | "failed"; message: string };
-  }
-  return {
-    status: "pending" as const,
-    message: "Prompt sent, but confirmation is taking longer than expected.",
-  };
-}
+const GROUPS: Array<{ key: string; name: string; tagline: string; icon: string }> = [
+  { key: "bingwa", name: "Bingwa Data Deals", tagline: "Buy once per day per line", icon: "🔂" },
+  { key: "repeatable", name: "Repeatable Deals", tagline: "Buy as many times as you like", icon: "♻️" },
+  { key: "minutes", name: "Minutes Deals", tagline: "Purchase multiple times", icon: "📞" },
+  { key: "sms", name: "SMS Deals", tagline: "Stay in touch for less", icon: "💬" },
+];
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Bingwa Sokoni — Buy Data, SMS & Minutes" },
-      { name: "description", content: "Buy Bingwa Sokoni data, SMS, minutes and Tunukiwa offers." },
-      { property: "og:title", content: "Bingwa Sokoni — Buy Data, SMS & Minutes" },
+      { title: "TIM'S DATA SOLUTIONS — Data, SMS & Minutes Deals" },
+      {
+        name: "description",
+        content:
+          "Buy affordable data, SMS and minutes deals instantly with M-Pesa from TIM'S DATA SOLUTIONS.",
+      },
+      { property: "og:title", content: "TIM'S DATA SOLUTIONS — Data, SMS & Minutes Deals" },
       {
         property: "og:description",
-        content: "Buy data, SMS, minutes and Tunukiwa offers instantly.",
+        content: "Instant data, SMS and minutes deals paid straight from M-Pesa.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Storefront,
 });
 
 function Storefront() {
-  const [offer, setOffer] = useState<Offer | null>(null);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [businessName, setBusinessName] = useState("TIM'S DATA SOLUTIONS");
+  const [supportPhone, setSupportPhone] = useState(DEFAULT_SUPPORT_PHONE);
+  const [loading, setLoading] = useState(true);
+  const [deal, setDeal] = useState<Deal | null>(null);
   const [mode, setMode] = useState<"mine" | "other">("mine");
-  const [paymentPhone, setPaymentPhone] = useState("");
-  const [receivingPhone, setReceivingPhone] = useState("");
+  const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [statusText, setStatusText] = useState<string | null>(null);
 
-  useEffect(() => {
-    const onInstall = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as BeforeInstallPromptEvent);
-    };
-    const onInstalled = () => setInstallPrompt(null);
-    window.addEventListener("beforeinstallprompt", onInstall);
-    window.addEventListener("appinstalled", onInstalled);
-    if ("serviceWorker" in navigator)
-      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onInstall);
-      window.removeEventListener("appinstalled", onInstalled);
-    };
+  const loadDeals = useCallback(async () => {
+    try {
+      const response = await fetch("/api/public/deals");
+      const body = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        data?: { deals?: Deal[]; businessName?: string; supportPhone?: string };
+      };
+      if (!response.ok || !body.ok) throw new Error(body.error ?? "Could not load deals.");
+      setDeals(body.data?.deals ?? []);
+      if (body.data?.businessName) setBusinessName(body.data.businessName);
+      if (body.data?.supportPhone) setSupportPhone(body.data.supportPhone);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not load deals.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  function openOffer(nextOffer: Offer) {
-    setOffer(nextOffer);
+  useEffect(() => {
+    void loadDeals();
+    if ("serviceWorker" in navigator)
+      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  }, [loadDeals]);
+
+  function openDeal(next: Deal) {
+    setDeal(next);
     setMode("mine");
-    setPaymentPhone("");
-    setReceivingPhone("");
+    setPhone("");
+    setStatusText(null);
   }
 
   async function buy() {
-    if (!offer) return;
-    const payer = paymentPhone.replace(/\D/g, "");
-    const recipient = (mode === "mine" ? paymentPhone : receivingPhone).replace(/\D/g, "");
-    if (payer.length < 9 || recipient.length < 9) {
-      toast.error(
-        mode === "mine" ? "Enter your M-Pesa number." : "Enter both payment and receiving numbers.",
-      );
+    if (!deal) return;
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 9) {
+      toast.error("Enter a valid M-Pesa number.");
       return;
     }
     setBusy(true);
+    setStatusText("Sending the M-Pesa prompt…");
     try {
-      const prompt = (await requestPayment("stkPush", {
-        phone: paymentPhone,
-        amount: offer.price,
-        reference: offer.service,
-        description: `${offer.title} ${offer.validity}`,
-      })) as PaymentResult;
-      if (!prompt.ok) throw new Error(prompt.error);
-      const payment = await waitForPayment(prompt.checkoutRequestId);
-      if (payment.status === "failed") throw new Error(payment.message);
-      if (payment.status === "pending") {
-        toast.info(payment.message);
-        return;
-      }
-      const saved = await fetch("/api/public/sales", {
+      const started = await fetch("/api/public/checkout", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          offerId: offer.id,
-          paymentPhone: payer,
-          receivingPhone: recipient,
-          paymentMode: "mpesa",
-        }),
+        body: JSON.stringify({ dealId: deal.id, paymentPhone: digits }),
       });
-      const savedBody = (await saved.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!saved.ok || !savedBody.ok)
-        throw new Error(savedBody.error ?? "Could not save the purchase.");
-      toast.success(`${offer.title} is being sent to ${recipient}.`);
-      setOffer(null);
+      const startBody = (await started.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        data?: { saleId: string; checkoutRequestId: string | null };
+      };
+      if (!started.ok || !startBody.ok || !startBody.data)
+        throw new Error(startBody.error ?? "Could not start the purchase.");
+
+      setStatusText("Enter your M-Pesa PIN on your phone…");
+      const { saleId, checkoutRequestId } = startBody.data;
+
+      for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, POLL_DELAY_MS));
+        const response = await fetch("/api/public/order-status", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ saleId, checkoutRequestId }),
+        });
+        const body = (await response.json().catch(() => ({}))) as {
+          ok?: boolean;
+          data?: { status?: string; message?: string; receipt?: string | null };
+        };
+        const status = body.data?.status;
+        if (status === "paid") {
+          toast.success(
+            `Payment confirmed. ${deal.title} is on the way to ${digits}.${
+              body.data?.receipt ? ` Ref ${body.data.receipt}` : ""
+            }`,
+          );
+          setDeal(null);
+          return;
+        }
+        if (status === "failed") throw new Error(body.data?.message ?? "The payment was not completed.");
+      }
+
+      toast.info("Prompt sent. Confirmation is taking longer than usual — we will deliver once paid.");
+      setDeal(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not complete the purchase.");
     } finally {
       setBusy(false);
+      setStatusText(null);
     }
   }
 
+  const telHref = `tel:${supportPhone.replace(/\s/g, "")}`;
+
   return (
-    <main className="mx-auto min-h-screen w-full max-w-md px-4 pb-16">
+    <main className="mx-auto min-h-screen w-full max-w-md px-4 pb-28">
       <Toaster />
       <header className="pt-8">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary">
-              Bingwa Sokoni
-            </p>
-            <h1 className="mt-2 text-3xl font-bold">Buy bundles quickly</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Choose an offer, pay with M-Pesa, and send it to your number or someone else.
-            </p>
-          </div>
-          {installPrompt ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                await installPrompt.prompt();
-                await installPrompt.userChoice;
-                setInstallPrompt(null);
-              }}
-            >
-              Install
-            </Button>
-          ) : null}
-        </div>
+        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary">
+          {businessName}
+        </p>
+        <h1 className="mt-2 text-3xl font-bold">Data, SMS &amp; minutes deals</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Pick a deal, pay with the M-Pesa prompt, and it is delivered to your line instantly.
+        </p>
       </header>
 
       <div className="mt-6 rounded-2xl border border-border bg-card/60 p-4 text-sm text-muted-foreground">
-        <Badge>Secure prompt</Badge>
-        <p className="mt-2">Your payment is verified before the bundle is recorded for delivery.</p>
+        <Badge>Secure M-Pesa prompt</Badge>
+        <p className="mt-2">
+          Payment is verified with an M-Pesa reference code before the bundle is recorded for
+          delivery.
+        </p>
       </div>
 
-      {OFFER_GROUPS.map((group) => (
-        <section key={group.id} className="mt-8">
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-lg font-bold">
-              <span className="mr-2">{group.icon}</span>
-              {group.name}
-            </h2>
-            <span className="text-[11px] text-muted-foreground">{group.tagline}</span>
-          </div>
-          <div className="mt-3 space-y-3">
-            {group.offers.map((item) => (
-              <article
-                key={item.id}
-                className="surface-card flex items-center gap-4 rounded-2xl p-4"
-              >
-                <div className="gradient-primary flex size-14 shrink-0 flex-col items-center justify-center rounded-xl text-primary-foreground">
-                  <span className="text-[10px] font-semibold opacity-80">KSH</span>
-                  <span className="text-base font-bold leading-none">{item.price}</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">{item.title}</p>
-                  <p className="text-xs text-muted-foreground">{item.validity}</p>
-                  {item.note ? <p className="mt-0.5 text-[11px] text-accent">{item.note}</p> : null}
-                </div>
-                <Button size="sm" onClick={() => openOffer(item)}>
-                  Buy
-                </Button>
-              </article>
-            ))}
-          </div>
-        </section>
-      ))}
+      {loading ? (
+        <p className="mt-10 text-center text-sm text-muted-foreground">Loading deals…</p>
+      ) : null}
+
+      {GROUPS.map((group) => {
+        const items = deals.filter((item) => item.groupKey === group.key);
+        if (!items.length) return null;
+        return (
+          <section key={group.key} className="mt-8">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="text-lg font-bold">
+                <span className="mr-2">{group.icon}</span>
+                {group.name}
+              </h2>
+              <span className="text-[11px] text-muted-foreground">{group.tagline}</span>
+            </div>
+            <div className="mt-3 space-y-3">
+              {items.map((item) => (
+                <article
+                  key={item.id}
+                  className="surface-card flex items-center gap-4 rounded-2xl p-4"
+                >
+                  <div className="gradient-primary flex size-14 shrink-0 flex-col items-center justify-center rounded-xl text-primary-foreground">
+                    <span className="text-[10px] font-semibold opacity-80">KES</span>
+                    <span className="text-base font-bold leading-none">{item.price}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">{item.validity}</p>
+                    {item.note ? (
+                      <p className="mt-0.5 text-[11px] text-accent">{item.note}</p>
+                    ) : null}
+                  </div>
+                  <Button size="sm" onClick={() => openDeal(item)}>
+                    Buy
+                  </Button>
+                </article>
+              ))}
+            </div>
+          </section>
+        );
+      })}
 
       <footer className="mt-10 text-center text-xs text-muted-foreground">
         Need dealer access?{" "}
@@ -220,13 +234,21 @@ function Storefront() {
         </a>
       </footer>
 
-      <Dialog open={!!offer} onOpenChange={(open) => !open && setOffer(null)}>
+      <a
+        href={telHref}
+        aria-label={`Call support on ${supportPhone}`}
+        className="gradient-primary fixed bottom-5 right-5 flex size-14 items-center justify-center rounded-full text-2xl text-primary-foreground shadow-lg"
+      >
+        📞
+      </a>
+
+      <Dialog open={!!deal} onOpenChange={(open) => !open && !busy && setDeal(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              Buy {offer?.title} · KES {offer?.price}
+              Buy {deal?.title} · KES {deal?.price}
             </DialogTitle>
-            <DialogDescription>{offer?.validity} · M-Pesa prompt</DialogDescription>
+            <DialogDescription>{deal?.validity} · M-Pesa prompt</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -234,7 +256,13 @@ function Storefront() {
                 <button
                   key={item}
                   type="button"
-                  onClick={() => setMode(item)}
+                  onClick={() => {
+                    if (item === "other") {
+                      toast.info("Buying for another number is coming soon.");
+                      return;
+                    }
+                    setMode(item);
+                  }}
                   className={`rounded-xl border p-3 text-sm font-medium transition-colors ${
                     mode === item
                       ? "border-primary bg-primary/15 text-primary"
@@ -246,33 +274,20 @@ function Storefront() {
               ))}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="payment-number">
-                {mode === "mine" ? "Your M-Pesa number" : "Payment number"}
-              </Label>
+              <Label htmlFor="payment-number">Your M-Pesa number</Label>
               <Input
                 id="payment-number"
                 inputMode="tel"
                 placeholder="07XX XXX XXX"
-                value={paymentPhone}
-                onChange={(e) => setPaymentPhone(e.target.value.replace(/[^\d+]/g, ""))}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ""))}
               />
             </div>
-            {mode === "other" ? (
-              <div className="space-y-2">
-                <Label htmlFor="receiving-number">Receiving number</Label>
-                <Input
-                  id="receiving-number"
-                  inputMode="tel"
-                  placeholder="07XX XXX XXX"
-                  value={receivingPhone}
-                  onChange={(e) => setReceivingPhone(e.target.value.replace(/[^\d+]/g, ""))}
-                />
-              </div>
-            ) : null}
+            {statusText ? <p className="text-xs text-muted-foreground">{statusText}</p> : null}
           </div>
           <DialogFooter>
             <Button className="w-full" size="lg" disabled={busy} onClick={buy}>
-              {busy ? "Processing…" : `Buy now · KES ${offer?.price ?? ""}`}
+              {busy ? "Processing…" : `Buy now · KES ${deal?.price ?? ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -280,8 +295,3 @@ function Storefront() {
     </main>
   );
 }
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-};
