@@ -1,0 +1,47 @@
+name: Deploy BingwaHybrid to Vercel
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm and install dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@10 --activate
+          pnpm install --no-frozen-lockfile
+
+      - name: Build application
+        run: pnpm run build
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel
+
+      - name: Deploy production to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo "GitHub Actions secret VERCEL_TOKEN is missing."; exit 1; }
+          vercel link --yes --project bingwahybrid --scope hy5 --token="$VERCEL_TOKEN"
+          vercel deploy --prod --yes --token="$VERCEL_TOKEN" --scope hy5
