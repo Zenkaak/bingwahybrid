@@ -35,20 +35,25 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel
 
-      - name: Link Vercel project and pull production settings
+      - name: Verify Vercel token identity and link project
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           test -n "$VERCEL_TOKEN" || { echo "GitHub Actions secret VERCEL_TOKEN is missing."; exit 1; }
-          vercel link --yes --project bingwahybrid --scope team_m9usasrUooachKm6GdoXnAYU --token="$VERCEL_TOKEN"
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN" --scope team_m9usasrUooachKm6GdoXnAYU
+          vercel whoami --token="$VERCEL_TOKEN"
+          vercel link --yes --project bingwahybrid --token="$VERCEL_TOKEN"
+
+      - name: Pull production settings
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
       - name: Build Vercel serverless output in GitHub Actions
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: vercel build --prod --token="$VERCEL_TOKEN" --scope team_m9usasrUooachKm6GdoXnAYU
+        run: vercel build --prod --token="$VERCEL_TOKEN"
 
       - name: Deploy prebuilt serverless output
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN" --scope team_m9usasrUooachKm6GdoXnAYU
+        run: vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN"
