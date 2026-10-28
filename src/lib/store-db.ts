@@ -1,403 +1,145 @@
+import { Pool, type QueryResultRow } from "pg";
+
 export type GatewaySettings = { enabled: boolean; till: string };
-
-export type Deal = {
-  id: string;
-  groupKey: string;
-  title: string;
-  price: number;
-  validity: string;
-  note: string | null;
-  sortOrder: number;
-  active: boolean;
-};
-
-export type Order = {
-  id: string;
-  offerId: string;
-  offerTitle: string;
-  service: string;
-  amount: number;
-  commission: number;
-  paymentPhone: string;
-  receivingPhone: string;
-  status: "pending" | "paid" | "failed";
-  receipt: string | null;
-  resultDesc: string | null;
-  destination: string;
-  createdAt: string;
-};
-
+export type Deal = { id: string; groupKey: string; title: string; price: number; validity: string; note: string | null; sortOrder: number; active: boolean };
+export type Order = { id: string; offerId: string; offerTitle: string; service: string; amount: number; commission: number; paymentPhone: string; receivingPhone: string; status: "pending" | "paid" | "failed"; receipt: string | null; resultDesc: string | null; destination: string; createdAt: string };
 export type DashboardData = {
-  balance: number;
-  businessName: string;
-  supportPhone: string;
-  salesCount: number;
-  revenue: number;
-  revenueToday: number;
-  salesToday: number;
-  pendingCount: number;
-  failedCount: number;
-  totalCommissions: number;
-  withdrawableCommissions: number;
-  pendingCommissions: number;
-  orders: Order[];
-  customers: Array<{ phone: string; salesCount: number; totalSpend: number; lastSeen: string }>;
-  withdrawals: Array<{ id: string; amount: number; phone: string | null; createdAt: string }>;
-  topDeals: Array<{ title: string; count: number; revenue: number }>;
+ balance: number; businessName: string; supportPhone: string; salesCount: number; revenue: number; revenueToday: number;
+ salesToday: number; pendingCount: number; failedCount: number; totalCommissions: number; withdrawableCommissions: number;
+ pendingCommissions: number; orders: Order[];
+ customers: Array<{phone:string;salesCount:number;totalSpend:number;lastSeen:string}>;
+ withdrawals: Array<{id:string;amount:number;phone:string|null;createdAt:string}>;
+ topDeals: Array<{title:string;count:number;revenue:number}>;
 };
 
-async function db() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
+const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+const globalPool = globalThis as typeof globalThis & { __bingwaHybridPool?: Pool };
+function getPool() {
+ if (!connectionString) throw new Error("PostgreSQL connection is not configured (POSTGRES_URL or DATABASE_URL).");
+ if (!globalPool.__bingwaHybridPool) globalPool.__bingwaHybridPool = new Pool({ connectionString, max: 5, idleTimeoutMillis: 10000, connectionTimeoutMillis: 8000 });
+ return globalPool.__bingwaHybridPool;
 }
-
-let settingsCache: { row: Record<string, unknown>; at: number } | null = null;
-
+async function query<T extends QueryResultRow = QueryResultRow>(sql: string, values: unknown[] = []) {
+ return getPool().query<T>(sql, values);
+}
+let settingsCache: {row: Record<string, unknown>; at: number} | null = null;
 async function loadSettings() {
-  const client = await db();
-  let lastError: unknown = null;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { data, error } = await client.from("app_settings").select("*").eq("id", 1).maybeSingle();
-    if (data) {
-      settingsCache = { row: data as Record<string, unknown>, at: Date.now() };
-      return settingsCache.row;
-    }
-    lastError = error;
-  }
-  if (settingsCache) return settingsCache.row;
-  console.error("[settings] load failed", lastError);
+ if (settingsCache && Date.now() - settingsCache.at < 5000) return settingsCache.row;
+ try {
+  const result = await query("SELECT * FROM app_settings WHERE id = 1");
+  if (!result.rows[0]) throw new Error("Missing app_settings row id=1");
+  settingsCache = {row: result.rows[0] as Record<string, unknown>, at: Date.now()};
+  return settingsCache.row;
+ } catch (error) {
+  console.error("[settings] PostgreSQL load failed", error instanceof Error ? error.message : "unknown error");
   throw new Error("Settings are not available right now.");
+ }
 }
-
-
-export async function getAdminPin() {
-  try {
-    const settings = await loadSettings();
-    return (settings["admin_pin"] as string) || "9898";
-  } catch {
-    return "9898";
-  }
-}
-
+export async function getAdminPin() { try { return String((await loadSettings()).admin_pin || "9898"); } catch { return "9898"; } }
 export async function getGatewaySettings(): Promise<GatewaySettings> {
-  const settings = await loadSettings();
-  const till = String(settings["till_number"] ?? "");
-  return {
-    enabled: settings["gateway_enabled"] === true,
-    till: /^\d{5,10}$/.test(till) ? till : "3367738",
-  };
+ const s = await loadSettings(); const till = String(s.till_number ?? "");
+ return {enabled:s.gateway_enabled === true, till:/^\d{5,10}$/.test(till) ? till : "3367738"};
 }
-
 export async function getStoreSettings() {
-  const settings = await loadSettings();
-  return {
-    enabled: settings["gateway_enabled"] === true,
-    till: String(settings["till_number"] ?? "3367738"),
-    paybill: String(settings["paybill_number"] ?? "4211224"),
-    businessName: String(settings["business_name"] ?? "TIM'S DATA SOLUTIONS"),
-    supportPhone: String(settings["support_phone"] ?? "0769252572"),
-    commissionPerTen: Number(settings["commission_per_ten"] ?? 1.5),
-    withdrawThreshold: Number(settings["withdraw_threshold"] ?? 10),
-    floatBalance: Number(settings["float_balance"] ?? 0),
-  };
+ const s = await loadSettings();
+ return {enabled:s.gateway_enabled === true, till:String(s.till_number ?? "3367738"), paybill:String(s.paybill_number ?? "4211224"),
+  businessName:String(s.business_name ?? "BLACK HOLE BINGWA SERVICES"), supportPhone:String(s.support_phone ?? "0769252572"),
+  commissionPerTen:Number(s.commission_per_ten ?? 1.5), withdrawThreshold:Number(s.withdraw_threshold ?? 10), floatBalance:Number(s.float_balance ?? 0)};
 }
-
-export async function updateStoreSettings(patch: {
-  enabled?: boolean;
-  till?: string;
-  paybill?: string;
-  businessName?: string;
-  supportPhone?: string;
-  adminPin?: string;
-}) {
-  const update: {
-    updated_at: string;
-    gateway_enabled?: boolean;
-    till_number?: string;
-    paybill_number?: string;
-    business_name?: string;
-    support_phone?: string;
-    admin_pin?: string;
-  } = { updated_at: new Date().toISOString() };
-  if (typeof patch.enabled === "boolean") update.gateway_enabled = patch.enabled;
-  if (patch.till) update.till_number = patch.till;
-  if (patch.paybill) update.paybill_number = patch.paybill;
-  if (patch.businessName) update.business_name = patch.businessName;
-  if (patch.supportPhone) update.support_phone = patch.supportPhone;
-  if (patch.adminPin && /^\d{4,6}$/.test(patch.adminPin)) update.admin_pin = patch.adminPin;
-
-
-  const client = await db();
-  const { error } = await client.from("app_settings").update(update).eq("id", 1);
-  if (error) throw new Error("Could not save settings.");
-  settingsCache = null;
-  return getStoreSettings();
+export async function updateStoreSettings(patch:{enabled?:boolean;till?:string;paybill?:string;businessName?:string;supportPhone?:string;adminPin?:string}) {
+ const sets:string[]=[]; const vals:unknown[]=[];
+ const add=(column:string,value:unknown)=>{vals.push(value);sets.push(column+" = $"+vals.length);};
+ if(typeof patch.enabled==="boolean") add("gateway_enabled",patch.enabled);
+ if(patch.till) add("till_number",patch.till); if(patch.paybill) add("paybill_number",patch.paybill);
+ if(patch.businessName) add("business_name",patch.businessName); if(patch.supportPhone) add("support_phone",patch.supportPhone);
+ if(patch.adminPin && /^\d{4,6}$/.test(patch.adminPin)) add("admin_pin",patch.adminPin);
+ if(sets.length){sets.push("updated_at = now()");await query("UPDATE app_settings SET "+sets.join(", ")+" WHERE id=1",vals);}
+ settingsCache=null; return getStoreSettings();
 }
-
-export async function updateGatewaySettings(settings: GatewaySettings) {
-  await updateStoreSettings({ enabled: settings.enabled, till: settings.till });
-  return settings;
+export async function updateGatewaySettings(settings:GatewaySettings){await updateStoreSettings({enabled:settings.enabled,till:settings.till});return settings;}
+export async function addFloat(amount:number){
+ if(!Number.isFinite(amount)||amount<=0) throw new Error("Amount must be positive.");
+ const r=await query<{float_balance:string|number}>("UPDATE app_settings SET float_balance=float_balance+$1,updated_at=now() WHERE id=1 RETURNING float_balance",[amount]);
+ if(!r.rows[0]) throw new Error("Could not add float."); settingsCache=null; return Number(r.rows[0].float_balance);
 }
-
-export async function addFloat(amount: number) {
-  const settings = await getStoreSettings();
-  const balance = settings.floatBalance + amount;
-  const client = await db();
-  const { error } = await client
-    .from("app_settings")
-    .update({ float_balance: balance, updated_at: new Date().toISOString() })
-    .eq("id", 1);
-  if (error) throw new Error("Could not add float.");
-  settingsCache = null;
-  return balance;
+function mapDeal(r:Record<string,unknown>):Deal{return {id:String(r.id),groupKey:String(r.group_key),title:String(r.title),price:Number(r.price),validity:String(r.validity),note:(r.note as string|null)??null,sortOrder:Number(r.sort_order??0),active:r.active!==false};}
+export async function listDeals(options?:{activeOnly?:boolean}){
+ const r=await query("SELECT * FROM deals"+(options?.activeOnly?" WHERE active=true":"")+" ORDER BY group_key ASC, sort_order ASC");
+ return r.rows.map(row=>mapDeal(row as Record<string,unknown>));
 }
-
-function mapDeal(row: Record<string, unknown>): Deal {
-  return {
-    id: String(row["id"]),
-    groupKey: String(row["group_key"]),
-    title: String(row["title"]),
-    price: Number(row["price"]),
-    validity: String(row["validity"]),
-    note: (row["note"] as string | null) ?? null,
-    sortOrder: Number(row["sort_order"] ?? 0),
-    active: row["active"] !== false,
-  };
+export async function saveDeal(d:Deal){
+ await query(`INSERT INTO deals(id,group_key,title,price,validity,note,sort_order,active,updated_at)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()) ON CONFLICT(id) DO UPDATE SET group_key=EXCLUDED.group_key,title=EXCLUDED.title,
+ price=EXCLUDED.price,validity=EXCLUDED.validity,note=EXCLUDED.note,sort_order=EXCLUDED.sort_order,active=EXCLUDED.active,updated_at=now()`,
+ [d.id,d.groupKey,d.title,d.price,d.validity,d.note,d.sortOrder,d.active]); return listDeals();
 }
-
-export async function listDeals(options?: { activeOnly?: boolean }) {
-  const client = await db();
-  let request = client.from("deals").select("*");
-  if (options?.activeOnly) request = request.eq("active", true);
-  const { data, error } = await request
-    .order("group_key", { ascending: true })
-    .order("sort_order", { ascending: true });
-  if (error) throw new Error("Could not load deals.");
-  return (data ?? []).map((row) => mapDeal(row as Record<string, unknown>));
+export async function deleteDeal(id:string){await query("DELETE FROM deals WHERE id=$1",[id]);return listDeals();}
+export function normalizePhone(input:string){const d=input.replace(/\D/g,"");if(d.startsWith("254"))return d;if(d.startsWith("0"))return "254"+d.slice(1);if(d.length===9)return "254"+d;return d;}
+export async function createPendingSale(input:{deal:Deal;paymentPhone:string;receivingPhone:string;checkoutRequestId:string|null}){
+ const s=await getStoreSettings(); const commission=(input.deal.price/10)*s.commissionPerTen; const destination=s.enabled?s.till:s.paybill;
+ const paymentPhone=normalizePhone(input.paymentPhone), receivingPhone=normalizePhone(input.receivingPhone);
+ const client=await getPool().connect();
+ try {
+  await client.query("BEGIN");
+  await client.query("INSERT INTO customers(phone,last_seen_at) VALUES($1,now()) ON CONFLICT(phone) DO UPDATE SET last_seen_at=now()",[receivingPhone]);
+  const r=await client.query<{id:string}>(`INSERT INTO sales(offer_id,offer_title,service,price,commission,payment_phone,receiving_phone,for_self,gateway_enabled,destination,status,checkout_request_id)
+  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',$11) RETURNING id`,
+  [input.deal.id,input.deal.title+" · "+input.deal.validity,input.deal.groupKey,input.deal.price,commission,paymentPhone,receivingPhone,paymentPhone===receivingPhone,s.enabled,destination,input.checkoutRequestId]);
+  await client.query("COMMIT"); return {id:String(r.rows[0].id),commission,destination};
+ } catch(error){await client.query("ROLLBACK");console.error("[sales] insert failed",error instanceof Error?error.message:"unknown error");throw new Error("Could not record the order.");}
+ finally{client.release();}
 }
-
-export async function saveDeal(input: Deal) {
-  const client = await db();
-  const { error } = await client.from("deals").upsert({
-    id: input.id,
-    group_key: input.groupKey,
-    title: input.title,
-    price: input.price,
-    validity: input.validity,
-    note: input.note,
-    sort_order: input.sortOrder,
-    active: input.active,
-    updated_at: new Date().toISOString(),
-  });
-  if (error) throw new Error("Could not save the deal.");
-  return listDeals();
-}
-
-export async function deleteDeal(id: string) {
-  const client = await db();
-  const { error } = await client.from("deals").delete().eq("id", id);
-  if (error) throw new Error("Could not delete the deal.");
-  return listDeals();
-}
-
-export function normalizePhone(input: string) {
-  const digits = input.replace(/\D/g, "");
-  if (digits.startsWith("254")) return digits;
-  if (digits.startsWith("0")) return `254${digits.slice(1)}`;
-  if (digits.length === 9) return `254${digits}`;
-  return digits;
-}
-
-export async function createPendingSale(input: {
-  deal: Deal;
-  paymentPhone: string;
-  receivingPhone: string;
-  checkoutRequestId: string | null;
-}) {
-  const settings = await getStoreSettings();
-  const client = await db();
-  const commission = (input.deal.price / 10) * settings.commissionPerTen;
-  const destination = settings.enabled ? settings.till : settings.paybill;
-  const paymentPhone = normalizePhone(input.paymentPhone);
-  const receivingPhone = normalizePhone(input.receivingPhone);
-
-  await client
-    .from("customers")
-    .upsert({ phone: receivingPhone, last_seen_at: new Date().toISOString() }, { onConflict: "phone" });
-
-  const { data, error } = await client
-    .from("sales")
-    .insert({
-      offer_id: input.deal.id,
-      offer_title: `${input.deal.title} · ${input.deal.validity}`,
-      service: input.deal.groupKey,
-      price: input.deal.price,
-      commission,
-      payment_phone: paymentPhone,
-      receiving_phone: receivingPhone,
-      for_self: paymentPhone === receivingPhone,
-      gateway_enabled: settings.enabled,
-      destination,
-      status: "pending",
-      checkout_request_id: input.checkoutRequestId,
-    })
-    .select("id")
-    .single();
-
-  if (error || !data) throw new Error("Could not record the order.");
-  return { id: String((data as { id: string }).id), commission, destination };
-}
-
-export async function markSaleResult(input: {
-  saleId?: string | null;
-  checkoutRequestId?: string | null;
-  status: "paid" | "failed";
-  receipt?: string | null;
-  resultDesc?: string | null;
-}) {
-  const client = await db();
-  let query = client.from("sales").select("*").limit(1);
-  query = input.saleId
-    ? query.eq("id", input.saleId)
-    : query.eq("checkout_request_id", input.checkoutRequestId ?? "");
-  const { data } = await query.maybeSingle();
-  const sale = data as Record<string, unknown> | null;
-  if (!sale) return null;
-
-  const alreadyPaid = sale["status"] === "paid";
-  await client
-    .from("sales")
-    .update({
-      status: input.status,
-      mpesa_receipt: input.receipt ?? (sale["mpesa_receipt"] as string | null),
-      result_desc: input.resultDesc ?? (sale["result_desc"] as string | null),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", sale["id"] as string);
-
-  if (input.status === "paid" && !alreadyPaid) {
-    const phone = String(sale["receiving_phone"]);
-    const { data: customer } = await client
-      .from("customers")
-      .select("purchases, total_spent")
-      .eq("phone", phone)
-      .maybeSingle();
-    const row = customer as { purchases?: number; total_spent?: number } | null;
-    await client
-      .from("customers")
-      .update({
-        purchases: Number(row?.purchases ?? 0) + 1,
-        total_spent: Number(row?.total_spent ?? 0) + Number(sale["price"]),
-        last_seen_at: new Date().toISOString(),
-      })
-      .eq("phone", phone);
+export async function markSaleResult(input:{saleId?:string|null;checkoutRequestId?:string|null;status:"paid"|"failed";receipt?:string|null;resultDesc?:string|null}){
+ const client=await getPool().connect();
+ try {
+  await client.query("BEGIN");
+  const selector=input.saleId?"id = $1":"checkout_request_id = $1";
+  const key=input.saleId??input.checkoutRequestId??"";
+  const found=await client.query("SELECT * FROM sales WHERE "+selector+" LIMIT 1 FOR UPDATE");
+  const sale=found.rows[0] as Record<string,unknown>|undefined;
+  if(!sale){await client.query("COMMIT");return null;}
+  const alreadyPaid=sale.status==="paid";
+  await client.query("UPDATE sales SET status=$1,mpesa_receipt=COALESCE($2,mpesa_receipt),result_desc=COALESCE($3,result_desc),updated_at=now() WHERE id=$4",
+   [input.status,input.receipt??null,input.resultDesc??null,sale.id]);
+  if(input.status==="paid"&&!alreadyPaid){
+   await client.query(`INSERT INTO customers(phone,purchases,total_spent,last_seen_at) VALUES($1,1,$2,now())
+    ON CONFLICT(phone) DO UPDATE SET purchases=customers.purchases+1,total_spent=customers.total_spent+EXCLUDED.total_spent,last_seen_at=now()`,
+    [String(sale.receiving_phone),Number(sale.price)]);
   }
-
-  return { id: String(sale["id"]), receipt: input.receipt ?? null };
+  await client.query("COMMIT"); return {id:String(sale.id),receipt:input.receipt??(sale.mpesa_receipt as string|null)??null};
+ } catch(error){await client.query("ROLLBACK");console.error("[sales] result update failed",error instanceof Error?error.message:"unknown error");throw new Error("Could not update the order result.");}
+ finally{client.release();}
 }
-
-function mapOrder(row: Record<string, unknown>): Order {
-  const status = String(row["status"]);
-  return {
-    id: String(row["id"]),
-    offerId: String(row["offer_id"]),
-    offerTitle: String(row["offer_title"]),
-    service: String(row["service"]),
-    amount: Number(row["price"]),
-    commission: Number(row["commission"]),
-    paymentPhone: String(row["payment_phone"]),
-    receivingPhone: String(row["receiving_phone"]),
-    status: status === "paid" || status === "failed" ? status : "pending",
-    receipt: (row["mpesa_receipt"] as string | null) ?? null,
-    resultDesc: (row["result_desc"] as string | null) ?? null,
-    destination: String(row["destination"] ?? ""),
-    createdAt: String(row["created_at"]),
-  };
+function mapOrder(r:Record<string,unknown>):Order{const status=String(r.status);return {id:String(r.id),offerId:String(r.offer_id),offerTitle:String(r.offer_title),service:String(r.service),amount:Number(r.price),commission:Number(r.commission),paymentPhone:String(r.payment_phone),receivingPhone:String(r.receiving_phone),status:status==="paid"||status==="failed"?status:"pending",receipt:(r.mpesa_receipt as string|null)??null,resultDesc:(r.result_desc as string|null)??null,destination:String(r.destination??""),createdAt:new Date(String(r.created_at)).toISOString()};}
+export async function getDashboardData():Promise<DashboardData>{
+ const s=await getStoreSettings();
+ const [sales,customers,withdrawalsR]=await Promise.all([
+  query("SELECT * FROM sales ORDER BY created_at DESC LIMIT 300"),query("SELECT * FROM customers ORDER BY last_seen_at DESC LIMIT 300"),
+  query("SELECT * FROM withdrawals ORDER BY created_at DESC LIMIT 100")]);
+ const orders=sales.rows.map(r=>mapOrder(r as Record<string,unknown>));const paid=orders.filter(o=>o.status==="paid");
+ const earned=paid.reduce((a,o)=>a+o.commission,0);
+ const withdrawals=withdrawalsR.rows.map((r:Record<string,unknown>)=>({id:String(r.id),amount:Number(r.amount),phone:(r.phone as string|null)??null,createdAt:new Date(String(r.created_at)).toISOString()}));
+ const available=Math.max(0,earned-withdrawals.reduce((a,w)=>a+w.amount,0));const threshold=s.withdrawThreshold||10;const withdrawable=Math.floor(available/threshold)*threshold;
+ const start=new Date();start.setHours(0,0,0,0);const paidToday=paid.filter(o=>new Date(o.createdAt)>=start);
+ const totals=new Map<string,{title:string;count:number;revenue:number}>();for(const o of paid){const t=totals.get(o.offerId)??{title:o.offerTitle,count:0,revenue:0};t.count++;t.revenue+=o.amount;totals.set(o.offerId,t);}
+ return {balance:s.floatBalance,businessName:s.businessName,supportPhone:s.supportPhone,salesCount:paid.length,revenue:paid.reduce((a,o)=>a+o.amount,0),revenueToday:paidToday.reduce((a,o)=>a+o.amount,0),salesToday:paidToday.length,pendingCount:orders.filter(o=>o.status==="pending").length,failedCount:orders.filter(o=>o.status==="failed").length,totalCommissions:Number(earned.toFixed(2)),withdrawableCommissions:Number(withdrawable.toFixed(2)),pendingCommissions:Number((available-withdrawable).toFixed(2)),orders,
+ customers:customers.rows.map((r:Record<string,unknown>)=>({phone:String(r.phone),salesCount:Number(r.purchases??0),totalSpend:Number(r.total_spent??0),lastSeen:new Date(String(r.last_seen_at)).toISOString()})),withdrawals,topDeals:[...totals.values()].sort((a,b)=>b.count-a.count).slice(0,5)};
 }
-
-export async function getDashboardData(): Promise<DashboardData> {
-  const settings = await getStoreSettings();
-  const client = await db();
-  const [salesResult, customerResult, withdrawalResult] = await Promise.all([
-    client.from("sales").select("*").order("created_at", { ascending: false }).limit(300),
-    client.from("customers").select("*").order("last_seen_at", { ascending: false }).limit(300),
-    client.from("withdrawals").select("*").order("created_at", { ascending: false }).limit(100),
-  ]);
-
-  const orders = (salesResult.data ?? []).map((row) => mapOrder(row as Record<string, unknown>));
-  const paid = orders.filter((order) => order.status === "paid");
-  const earned = paid.reduce((sum, order) => sum + order.commission, 0);
-  const withdrawals = (withdrawalResult.data ?? []).map((row) => {
-    const item = row as Record<string, unknown>;
-    return {
-      id: String(item["id"]),
-      amount: Number(item["amount"]),
-      phone: (item["phone"] as string | null) ?? null,
-      createdAt: String(item["created_at"]),
-    };
-  });
-  const withdrawn = withdrawals.reduce((sum, item) => sum + item.amount, 0);
-  const available = Math.max(0, earned - withdrawn);
-  const threshold = settings.withdrawThreshold || 10;
-  const withdrawable = Math.floor(available / threshold) * threshold;
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const paidToday = paid.filter((order) => new Date(order.createdAt) >= startOfDay);
-
-  const dealTotals = new Map<string, { title: string; count: number; revenue: number }>();
-  for (const order of paid) {
-    const current = dealTotals.get(order.offerId) ?? {
-      title: order.offerTitle,
-      count: 0,
-      revenue: 0,
-    };
-    current.count += 1;
-    current.revenue += order.amount;
-    dealTotals.set(order.offerId, current);
-  }
-
-  return {
-    balance: settings.floatBalance,
-    businessName: settings.businessName,
-    supportPhone: settings.supportPhone,
-    salesCount: paid.length,
-    revenue: paid.reduce((sum, order) => sum + order.amount, 0),
-    revenueToday: paidToday.reduce((sum, order) => sum + order.amount, 0),
-    salesToday: paidToday.length,
-    pendingCount: orders.filter((order) => order.status === "pending").length,
-    failedCount: orders.filter((order) => order.status === "failed").length,
-    totalCommissions: Number(earned.toFixed(2)),
-    withdrawableCommissions: Number(withdrawable.toFixed(2)),
-    pendingCommissions: Number((available - withdrawable).toFixed(2)),
-    orders,
-    customers: (customerResult.data ?? []).map((row) => {
-      const item = row as Record<string, unknown>;
-      return {
-        phone: String(item["phone"]),
-        salesCount: Number(item["purchases"] ?? 0),
-        totalSpend: Number(item["total_spent"] ?? 0),
-        lastSeen: String(item["last_seen_at"]),
-      };
-    }),
-    withdrawals,
-    topDeals: [...dealTotals.values()].sort((a, b) => b.count - a.count).slice(0, 5),
-  };
+export async function requestCommissionWithdrawal(phone?:string|null){
+ const client=await getPool().connect();
+ try {
+  await client.query("BEGIN");
+  const s=await client.query("SELECT * FROM sales WHERE status='paid'");
+  const w=await client.query("SELECT COALESCE(SUM(amount),0) AS total FROM withdrawals");
+  const earned=s.rows.reduce((a,r)=>a+Number(r.commission),0);
+  const available=Math.max(0,earned-Number(w.rows[0]?.total??0));
+  const settings=await client.query("SELECT withdraw_threshold FROM app_settings WHERE id=1");
+  const threshold=Number(settings.rows[0]?.withdraw_threshold??10)||10;
+  const amount=Math.floor(available/threshold)*threshold;
+  if(!amount){await client.query("COMMIT");return {amount:0};}
+  await client.query("INSERT INTO withdrawals(amount,phone,status) VALUES($1,$2,'requested')",[amount,phone??null]);
+  await client.query("COMMIT");return {amount};
+ } catch(error){await client.query("ROLLBACK");throw new Error("Could not request withdrawal.");}
+ finally{client.release();}
 }
-
-export async function requestCommissionWithdrawal(phone?: string | null) {
-  const dashboard = await getDashboardData();
-  const amount = dashboard.withdrawableCommissions;
-  if (!amount) return { amount: 0 };
-  const client = await db();
-  await client
-    .from("withdrawals")
-    .insert({ amount, phone: phone ?? null, status: "requested" });
-  return { amount };
-}
-
-export async function getDeal(id: string) {
-  const client = await db();
-  const { data } = await client.from("deals").select("*").eq("id", id).maybeSingle();
-  if (!data) return null;
-  return mapDeal(data as Record<string, unknown>);
-}
+export async function getDeal(id:string){const r=await query("SELECT * FROM deals WHERE id=$1 LIMIT 1",[id]);return r.rows[0]?mapDeal(r.rows[0] as Record<string,unknown>):null;}
