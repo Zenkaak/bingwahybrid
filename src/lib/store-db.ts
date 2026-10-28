@@ -95,7 +95,7 @@ export async function markSaleResult(input:{saleId?:string|null;checkoutRequestI
   await client.query("BEGIN");
   const selector=input.saleId?"id = $1":"checkout_request_id = $1";
   const key=input.saleId??input.checkoutRequestId??"";
-  const found=await client.query("SELECT * FROM sales WHERE "+selector+" LIMIT 1 FOR UPDATE");
+  const found=await client.query("SELECT * FROM sales WHERE "+selector+" LIMIT 1 FOR UPDATE",[key]);
   const sale=found.rows[0] as Record<string,unknown>|undefined;
   if(!sale){await client.query("COMMIT");return null;}
   const alreadyPaid=sale.status==="paid";
