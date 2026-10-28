@@ -1,0 +1,76 @@
+name: Inspect production PostgreSQL schema
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Vercel CLI and PostgreSQL client
+        run: |
+          npm install --global vercel
+          npm install pg
+
+      - name: Link Vercel project and pull production environment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo "VERCEL_TOKEN secret is missing"; exit 1; }
+          vercel link --yes --project bingwahybrid --token="$VERCEL_TOKEN"
+          vercel env pull .env.production.local --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Print schema only (no row data or credentials)
+        env:
+          NODE_OPTIONS: ""
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import pg from 'pg';
+          const text = fs.readFileSync('.env.production.local', 'utf8');
+          const env = {};
+          for (const line of text.split(/\r?\n/)) {
+            const m = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)\s*$/);
+            if (!m) continue;
+            let value = m[2].trim();
+            if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
+            env[m[1]] = value;
+          }
+          const connectionString = env.POSTGRES_URL || env.DATABASE_URL || env.POSTGRES_URL_NON_POOLING;
+          if (!connectionString) {
+            console.error('No PostgreSQL connection variable found in pulled production environment.');
+            process.exit(2);
+          }
+          const client = new pg.Client({
+            connectionString,
+            ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false },
+            connectionTimeoutMillis: 10000,
+            query_timeout: 10000,
+          });
+          try {
+            await client.connect();
+            const result = await client.query(`
+              SELECT table_schema, table_name, column_name, data_type, udt_name, is_nullable
+              FROM information_schema.columns
+              WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+                AND table_name IN ('app_settings','deals','customers','sales','withdrawals')
+              ORDER BY table_schema, table_name, ordinal_position
+            `);
+            console.log(JSON.stringify(result.rows, null, 2));
+          } finally {
+            await client.end().catch(() => {});
+            try { fs.unlinkSync('.env.production.local'); } catch {}
+          }
+          NODE
