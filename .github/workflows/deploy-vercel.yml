@@ -16,7 +16,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -32,16 +32,23 @@ jobs:
           corepack prepare pnpm@10 --activate
           pnpm install --no-frozen-lockfile
 
-      - name: Build application
-        run: pnpm run build
-
       - name: Install Vercel CLI
         run: npm install --global vercel
 
-      - name: Deploy production to Vercel
+      - name: Link Vercel project and pull production settings
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           test -n "$VERCEL_TOKEN" || { echo "GitHub Actions secret VERCEL_TOKEN is missing."; exit 1; }
           vercel link --yes --project bingwahybrid --scope team_m9usasrUooachKm6GdoXnAYU --token="$VERCEL_TOKEN"
-          vercel deploy --prod --yes --token="$VERCEL_TOKEN" --scope team_m9usasrUooachKm6GdoXnAYU
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN" --scope team_m9usasrUooachKm6GdoXnAYU
+
+      - name: Build Vercel serverless output in GitHub Actions
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod --token="$VERCEL_TOKEN" --scope team_m9usasrUooachKm6GdoXnAYU
+
+      - name: Deploy prebuilt serverless output
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN" --scope team_m9usasrUooachKm6GdoXnAYU
